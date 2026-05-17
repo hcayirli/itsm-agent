@@ -36,7 +36,6 @@ Jira ticketlarını otomatik olarak işleyerek ISO 20000/ITIL 4 standartlarına 
 - Docker ve Docker Compose (v2+)
 - OpenRouter API anahtarı — veya Ollama kurulu bir sunucu
 - Jira Cloud hesabı ve API token
-- 16 GB RAM (GPU gerekmez)
 
 ---
 
@@ -165,4 +164,4 @@ Jira entegrasyonu, `mcp-atlassian` adlı bağımsız bir servis üzerinden **MCP
 
 **Raporun güvenilirliği:** Reviewer ajanı, LLM'in kaynak metinde bulunmayan bilgi uydurmasını, geçmiş zaman kipiyle çözülmüş gibi yazmasını veya emoji kullanmasını tespit edip reddeder. Kuralı iki kez geçemeyen taslak olduğu gibi kabul edilir; bu, analizin hiç üretilememesi yerine mevcut en iyi taslağın kullanılabilmesini sağlar.
 
-**GPU gerektirmez:** Embedding modeli CPU üzerinde çalışacak şekilde yapılandırılmıştır. Günlük 500 ticketın altındaki hacimler için ek donanım yatırımı gerekmemektedir.
+**Geliştirme ortamı:** Sistem, 16 GB RAM ve CPU-only (GPU'suz) bir makinede geliştirilip test edilmiştir. Embedding modeli GPU gerektirmeyecek şekilde yapılandırılmıştır.
