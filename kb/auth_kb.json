@@ -1,0 +1,238 @@
+[
+    {
+        "id": "kb-auth-0001",
+        "kb": "auth_kb",
+        "title": "Okta MFA Token Senkronizasyon ve Push Bildirimi Gecikmeleri",
+        "content": "Problem: Kullanıcıların Okta Verify uygulaması üzerinden aldığı push bildirimlerinin mobil cihazlara ulaşmaması veya üretilen tek kullanımlık şifrelerin (OTP) sistem tarafından reddedilmesi.\nBelirtiler: Kullanıcı Okta dashboard girişinde 'Push sent' uyarısı alıyor ancak telefona bildirim düşmüyor. Manuel girilen kodlarda 'Invalid passcode' hatası alınıyor.\nKök Neden: Mobil cihaz saati ile Okta bulut sunucuları arasındaki NTP senkronizasyon farkı (Clock Skew) veya cihazdaki push token'ın expire olması.\nAdım Adım Çözüm: 1. Kullanıcıdan mobil cihazının tarih/saat ayarlarını 'Otomatik' moduna alması istenir. 2. Okta Admin panelden ilgili kullanıcı bulunur. 3. 'Factors' sekmesinden mevcut Okta Verify kaydı 'Reset' edilir. 4. Kullanıcıya yeni bir aktivasyon linki gönderilerek cihazını tekrar kaydetmesi sağlanır.\nÖnleyici Tedbir: Şirket mobil cihaz politikasında (MDM) saat ayarlarının değiştirilmesi kısıtlanmalı ve NTP senkronizasyonu zorunlu tutulmalıdır.",
+        "tags": [
+            "Okta",
+            "MFA",
+            "Verify",
+            "Sync"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-15",
+        "author": "iam-team",
+        "metadata": {
+            "applies_to": [
+                "Android",
+                "iOS"
+            ],
+            "related_cis": [
+                "Okta Identity Cloud"
+            ]
+        }
+    },
+    {
+        "id": "kb-auth-0002",
+        "kb": "auth_kb",
+        "title": "techcorp.local Domain Üzerinde Tekrarlayan Hesap Kilitlenmeleri (Account Lockout)",
+        "content": "Problem: Belirli kullanıcı hesaplarının, kullanıcı şifresini doğru girmesine rağmen Active Directory üzerinde sürekli kilitlenmesi.\nBelirtiler: AD Event Loglarda ID 4740 (A member account was locked out) sıkça görülüyor. Kullanıcı HR-Portal veya Windows girişlerinde 'Your account is locked' hatası alıyor.\nKök Neden: Kullanıcının şifre değişiminden sonra eski şifrenin kayıtlı kaldığı bir servis, mobil cihazdaki mail istemcisi veya maplenmiş bir network drive üzerindeki 'cached credentials'.\nAdım Adım Çözüm: 1. Microsoft Account Lockout Status (LockoutStatus.exe) aracı ile hangi Domain Controller üzerinde kilitlenme olduğu tespit edilir. 2. 'Caller Computer Name' alanından kilitlenmeye sebep olan kaynak cihaz bulunur. 3. İlgili cihazda Windows Credential Manager temizlenir. 4. Mobil cihazlardaki kurumsal Exchange hesapları kontrol edilir.\nÖnleyici Tedbir: Şifre değişim sonrası tüm aktif oturumların sonlandırılması için self-service bir script dağıtılmalı ve Lockout Policy 30 dakika sonra otomatik açılacak şekilde güncellenmelidir.",
+        "tags": [
+            "AD",
+            "Active Directory",
+            "Lockout",
+            "Security"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-20",
+        "author": "ad-admin",
+        "metadata": {
+            "applies_to": [
+                "Windows 11",
+                "Windows Server 2022"
+            ],
+            "related_cis": [
+                "techcorp.local DC"
+            ]
+        }
+    },
+    {
+        "id": "kb-auth-0003",
+        "kb": "auth_kb",
+        "title": "HR-Portal React App Okta SSO Yönlendirme Hatası",
+        "content": "Problem: Kullanıcılar HR-Portal uygulamasına giriş yaparken Okta tarafına yönlendirildikten sonra uygulamaya geri dönemiyor ve beyaz ekranla karşılaşıyor.\nBelirtiler: Tarayıcı konsolunda 'PKCE code challenge mismatch' veya 'Invalid State' hatası görülüyor. URL içerisinde redirect_uri hatası dönüyor.\nKök Neden: HR-Portal (React/Node.js) tarafındaki OIDC konfigürasyonunda 'Redirect URI' bilgisinin Okta Application settings ile uyuşmaması veya tarayıcıda eski session cookie'lerinin kalması.\nAdım Adım Çözüm: 1. Okta Admin Panel -> Applications -> HR-Portal ayarlarından Login Redirect URI kontrol edilir (https://hr.techcorp.com/login/callback). 2. Uygulama tarafındaki .env dosyasındaki OKTA_CLIENT_ID doğrulanır. 3. Kullanıcı tarayıcı önbelleği ve local storage temizlenir. 4. Node.js tarafında auth middleware logları incelenir.\nÖnleyici Tedbir: CI/CD pipeline süreçlerine environment variable doğrulama adımı eklenmeli, prod ve dev ortam redirect URI'ları ayrıştırılmalıdır.",
+        "tags": [
+            "SSO",
+            "OIDC",
+            "React",
+            "HR-Portal"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-02-01",
+        "author": "app-support-l3",
+        "metadata": {
+            "applies_to": [
+                "HR-Portal"
+            ],
+            "related_cis": [
+                "Okta",
+                "Node.js Server"
+            ]
+        }
+    },
+    {
+        "id": "kb-auth-0004",
+        "kb": "auth_kb",
+        "title": "FinansPro Finans DB (Oracle 19c) Wallet Kimlik Doğrulama Hatası",
+        "content": "Problem: FinansPro Java uygulamasının Oracle 19c veritabanına bağlantı sağlayamaması ve yetkilendirme hatası alması.\nBelirtiler: Uygulama loglarında 'ORA-28759: failure to open file' veya 'ORA-01017: invalid username/password' hatası görülüyor.\nKök Neden: Oracle Wallet (cwallet.sso) dosyasının erişim izinlerinin değişmesi veya şifreleme anahtarının expire olması.\nAdım Adım Çözüm: 1. Sunucu üzerinde wallet dosyasının yolu (TNS_ADMIN) kontrol edilir. 2. Linux üzerinde oracle kullanıcısının dosyaya okuma izni (chmod 600) olduğu doğrulanır. 3. mkstore komutu ile wallet içeriği listelenir: 'mkstore -wrl <wallet_location> -listCredential'. 4. Eğer credential eksikse 'mkstore -wrl <loc> -createCredential' ile güncellenir.\nÖnleyici Tedbir: Wallet dosyaları için merkezi bir key management sistemi (KMS) kullanılmalı ve dosya izinleri Ansible playbook ile periyodik kontrol edilmelidir.",
+        "tags": [
+            "Oracle",
+            "DB-Auth",
+            "Wallet",
+            "FinansPro"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-01-10",
+        "author": "dba-team",
+        "metadata": {
+            "applies_to": [
+                "Finans DB",
+                "Oracle 19c"
+            ],
+            "related_cis": [
+                "Ubuntu 22.04 Sunucu"
+            ]
+        }
+    },
+    {
+        "id": "kb-auth-0005",
+        "kb": "auth_kb",
+        "title": "Cisco AnyConnect VPN Okta Radius Agent Bağlantı Sorunu",
+        "content": "Problem: Dışarıdan çalışan personelin VPN bağlantısı yaparken kullanıcı adı/şifre sonrası MFA aşamasına geçememesi.\nBelirtiler: AnyConnect istemcisinde 'Connection attempt has timed out' hatası. Okta Radius Agent loglarında 'Radius packet dropped' uyarısı.\nKök Neden: Fortinet Firewall üzerinde UDP 1812 portunun kısıtlanması veya Radius Agent servisinin Windows Server üzerinde crash olması.\nAdım Adım Çözüm: 1. Okta Radius Agent yüklü sunucuda servis restart edilir. 2. Fortinet üzerinden 10.0.x.x bloklarındaki Radius trafiği izlenir. 3. Radius Shared Secret anahtarı Cisco ASA/AnyConnect config ile karşılaştırılır. 4. Agent loglarındaki 'org_url' doğrulanır.\nÖnleyici Tedbir: Radius Agent servisleri için High Availability (HA) yapısı kurulmalı ve monitoring sistemine (Zabbix/Nagios) port kontrolü eklenmelidir.",
+        "tags": [
+            "VPN",
+            "Radius",
+            "Cisco",
+            "AnyConnect"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-02-12",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Remote Users"
+            ],
+            "related_cis": [
+                "Cisco ASA",
+                "Okta Radius Agent"
+            ]
+        }
+    },
+    {
+        "id": "kb-auth-0006",
+        "kb": "auth_kb",
+        "title": "Ubuntu 22.04 LTS Sunucularında SSSD ve AD Entegrasyon Kopması",
+        "content": "Problem: Sistem yöneticilerinin techcorp.local hesapları ile Linux sunuculara SSH yapamaması.\nBelirtiler: 'Permission denied (publickey,password)' hatası. 'id username' komutu çalıştırıldığında kullanıcı bulunamıyor.\nKök Neden: SSSD (System Security Services Daemon) servisinin AD Domain Controller ile trust ilişkisinin bozulması veya DNS çözümleme hatası.\nAdım Adım Çözüm: 1. 'systemctl restart sssd' komutu ile servis yeniden başlatılır. 2. '/etc/resolv.conf' dosyasında AD DNS IP'leri (10.0.x.x) kontrol edilir. 3. 'adcli info techcorp.local' ile domain erişimi test edilir. 4. Gerekirse 'realm leave' ve 'realm join' ile sunucu domain'e tekrar alınır.\nÖnleyici Tedbir: SSSD konfigürasyonunda 'cache_credentials = true' parametresi aktif edilerek DC kesintilerinde lokal cache kullanımı sağlanmalıdır.",
+        "tags": [
+            "Linux",
+            "SSSD",
+            "AD",
+            "SSH"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-25",
+        "author": "sysadmin-l3",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04 Sunucular"
+            ],
+            "related_cis": [
+                "techcorp.local AD"
+            ]
+        }
+    },
+    {
+        "id": "kb-auth-0007",
+        "kb": "auth_kb",
+        "title": "Okta SAML Sertifika Yenileme Sonrası Uygulama Erişim Kaybı",
+        "content": "Problem: Uygulama bazlı SSO girişlerinin 'Signature validation failed' hatası ile durması.\nBelirtiler: Kullanıcı Okta'dan uygulamaya tıkladığında uygulama tarafında 403 veya 500 hatası alıyor. Metadata URL erişilebilir ancak sertifika mismatch uyarısı var.\nKök Neden: Okta tarafındaki Signing Certificate süresinin dolması ve yeni sertifikanın HR-Portal/FinansPro gibi uygulamalara manuel import edilmemesi.\nAdım Adım Çözüm: 1. Okta Admin -> Security -> Certificates sekmesinden yeni sertifika indirilir. 2. HR-Portal konfigürasyon paneline girilir. 3. Eski X.509 sertifikası yenisiyle değiştirilir. 4. Metadata XML dosyası update edilerek servis restart edilir.\nÖnleyici Tedbir: Sertifika bitiş tarihleri IT takvimine eklenmeli ve bitime 30 gün kala 'Rotation' süreci başlatılmalıdır.",
+        "tags": [
+            "SAML",
+            "Certificate",
+            "SSO",
+            "Security"
+        ],
+        "severity": "high",
+        "last_verified": "2025-02-05",
+        "author": "security-arch",
+        "metadata": {
+            "applies_to": [
+                "All SaaS/Internal Apps"
+            ],
+            "related_cis": [
+                "Okta SAML IdP"
+            ]
+        }
+    },
+    {
+        "id": "kb-auth-0008",
+        "kb": "auth_kb",
+        "title": "İç İçe Geçmiş (Nested) AD Gruplarında Yetki Senkronizasyon Sorunu",
+        "content": "Problem: Bir kullanıcı bir gruba eklenmesine rağmen, o grubun üye olduğu üst grubun yetkilerini alamaması.\nBelirtiler: Kullanıcı HR-Portal üzerinde 'Admin' yetkisine sahip olması gerekirken sadece 'User' yetkisiyle görüyor. 'whoami /groups' çıktısında üst grup SID'si eksik.\nKök Neden: Uygulamanın (PostgreSQL/Node.js entegrasyonu) 'Nested Group' tarama özelliğinin kapalı olması veya AD 'MaxTokenSize' sınırının aşılması.\nAdım Adım Çözüm: 1. AD üzerinde 'Direct Membership' kontrol edilir. 2. Uygulama LDAP sorgu filtresi 'memberOf:1.2.840.113556.1.4.1941:=' (LDAP_MATCHING_RULE_IN_CHAIN) olarak güncellenir. 3. Kullanıcı oturumu kapatıp açarak Kerberos ticket yenilemesi yapar.\nÖnleyici Tedbir: Grup hiyerarşisi 3 seviyeden fazla derinleştirilmemeli ve RBAC (Role Based Access Control) matrisi basitleştirilmelidir.",
+        "tags": [
+            "AD",
+            "LDAP",
+            "Nested-Groups",
+            "Permissions"
+        ],
+        "severity": "low",
+        "last_verified": "2025-01-28",
+        "author": "iam-specialist",
+        "metadata": {
+            "applies_to": [
+                "techcorp.local AD"
+            ],
+            "related_cis": [
+                "HR-Portal DB"
+            ]
+        }
+    },
+    {
+        "id": "kb-auth-0009",
+        "kb": "auth_kb",
+        "title": "FinansPro Servis Hesapları (Service Accounts) MFA Muafiyet Sorunu",
+        "content": "Problem: FinansPro'nun gece çalışan batch job'larının kimlik doğrulama hatası alarak durması.\nBelirtiler: Job loglarında 'MFA challenge required' hatası. Okta system loglarında 'Deny - Policy violation' kaydı.\nKök Neden: Yeni uygulanan global MFA politikasının, muaf tutulması gereken servis hesaplarını (service_finanspro) kapsaması.\nAdım Adım Çözüm: 1. Okta üzerinde 'Service Accounts' adlı bir grup oluşturulur. 2. FinansPro servis hesabı bu gruba dahil edilir. 3. Okta Sign-on Policy düzenlenerek bu grup için MFA 'Disabled' yapılır. 4. Güvenlik için bu muafiyet sadece belirli statik IP blokları (10.0.1.x) ile sınırlandırılır.\nÖnleyici Tedbir: Servis hesapları için ayrı bir OU ve isimlendirme standardı (svc_...) kullanılmalı, bu hesaplara sadece belirli IP'lerden erişim izni verilmelidir.",
+        "tags": [
+            "Service-Account",
+            "MFA",
+            "Exemption",
+            "FinansPro"
+        ],
+        "severity": "high",
+        "last_verified": "2025-02-10",
+        "author": "security-ops",
+        "metadata": {
+            "applies_to": [
+                "Batch Jobs",
+                "Automation"
+            ],
+            "related_cis": [
+                "Okta Policy Engine"
+            ]
+        }
+    },
+    {
+        "id": "kb-auth-0010",
+        "kb": "auth_kb",
+        "title": "Windows 11 Kerberos Saat Farkı (Clock Skew) Hatası",
+        "content": "Problem: Kullanıcıların bilgisayarlarını açtıklarında 'The system detected a possible attempt to compromise security' uyarısı alması ve domain kaynaklarına erişememesi.\nBelirtiler: Event Viewer'da Kerberos Error ID 34. Kullanıcı şifresini girmesine rağmen 'Time difference with Server' hatası alıyor.\nKök Neden: Local Windows 11 cihaz saati ile Domain Controller saati arasındaki farkın 5 dakikadan fazla olması (Default Kerberos Policy).\nAdım Adım Çözüm: 1. Komut istemi (CMD) yönetici olarak açılır. 2. 'net time /set /y' komutu ile saat DC ile eşitlenir. 3. Eğer senkronize olmuyorsa 'w32tm /config /syncfromflags:domhier /update' ve 'w32tm /resync' komutları çalıştırılır. 4. BIOS/UEFI üzerindeki donanım saati kontrol edilir.\nÖnleyici Tedbir: GPO üzerinden tüm istemcilerin saatlerini PDC Emulator rolündeki DC'den almaları zorunlu hale getirilmelidir.",
+        "tags": [
+            "Kerberos",
+            "NTP",
+            "Windows-11",
+            "Time-Sync"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-02-14",
+        "author": "sysadmin-l3",
+        "metadata": {
+            "applies_to": [
+                "Windows 11 Laptops"
+            ],
+            "related_cis": [
+                "techcorp.local DC"
+            ]
+        }
+    }
+]

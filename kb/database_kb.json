@@ -1,0 +1,235 @@
+[
+    {
+        "id": "kb-database-0001",
+        "kb": "database_kb",
+        "title": "FinansPro Oracle 19c Bağlantı Havuzu (Connection Pool) Tükenmesi",
+        "content": "Problem: FinansPro Java/Spring uygulaması, yoğun trafik altında veritabanına bağlanamıyor ve kullanıcılar 'Service Unavailable' hataları alıyor.\n\nBelirtiler: Oracle loglarında 'ORA-00020: maximum number of processes (%s) exceeded' hatası gözlemleniyor. Uygulama tarafında HikariCP 'Connection is not available, request timed out' mesajı veriyor. Grafana dashboardlarında aktif session sayısının limitlere dayandığı görülüyor.\n\nKök Neden: FinansPro uygulamasındaki raporlama modülünde veritabanı bağlantılarının (connections) işlem sonunda kapatılmaması (leak) ve Java heap belleğindeki nesnelerin temizlenmemesi sonucu Oracle tarafındaki 'processes' parametresinin aşılması.\n\nAdım Adım Çözüm:\n1. Oracle tarafında mevcut sessionları kontrol edin: `SELECT count(*) FROM v$session;`.\n2. Inactive durumda olan ve uzun süredir açık kalan sessionları tespit edin.\n3. Acil durum müdahalesi olarak limitleri geçici artırın: `ALTER SYSTEM SET processes=500 SCOPE=SPFILE;` (Restart gerektirir) veya eski sessionları kill edin: `ALTER SYSTEM KILL SESSION 'sid,serial#';`.\n4. FinansPro tarafında HikariCP ayarlarında `idleTimeout` ve `maxLifetime` parametrelerini optimize edin.\n5. Uygulama kodunda @Transactional anotasyonlarının ve try-with-resources bloklarının doğruluğunu L3 ekibiyle kontrol edin.\n\nÖnleyici Tedbir: Oracle Resource Manager kullanarak uygulama bazlı session limiti koyun ve Prometheus üzerinden 'active sessions' metriği %80'e ulaştığında alarm tetikleyin.",
+        "tags": [
+            "oracle",
+            "finanspro",
+            "connection-leak",
+            "hikari"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-01-15",
+        "author": "db-infra-specialist",
+        "metadata": {
+            "applies_to": [
+                "Oracle 19c"
+            ],
+            "related_cis": [
+                "Finans-DB-01",
+                "FinansPro-App"
+            ]
+        }
+    },
+    {
+        "id": "kb-database-0002",
+        "kb": "database_kb",
+        "title": "PostgreSQL 15 HR-Portal Disk Şişmesi (Bloat) Sorunu",
+        "content": "Problem: HR-Portal uygulamasının çalıştığı PostgreSQL sunucusunda disk doluluk oranı %95 üzerine çıktı ve sistem yavaşladı.\n\nBelirtiler: Ubuntu 22.04 üzerinde `df -h` komutu /var/lib/postgresql dizininin hızla büyüdüğünü gösteriyor. Sorgu performansları (özellikle Full Table Scan gerektirenler) ciddi oranda düştü.\n\nKök Neden: HR-Portal uygulamasının sık güncelleme yapması nedeniyle 'dead tuples' miktarının artması ve Autovacuum mekanizmasının bu hıza yetişememesi. Bu durum 'Table Bloat' oluşmasına neden oluyor.\n\nAdım Adım Chözüm:\n1. Bloat miktarını teşhis etmek için `pgstattuple` eklentisini kullanarak tabloları analiz edin.\n2. Boş alanı işletim sistemine geri kazandırmak için kritik tabloda `VACUUM FULL <table_name>;` komutunu çalıştırın. (Not: Bu işlem tabloyu kilitler, bakım saatinde yapılmalıdır).\n3. Eğer kilitlenme istenmiyorsa `pg_repack` aracını kullanarak online index/table rebuild işlemi yapın.\n4. Postgresql.conf dosyasında `autovacuum_vacuum_scale_factor` değerini 0.05 gibi daha agresif bir değere çekin.\n\nÖnleyici Tedbir: Haftalık olarak bloat raporları oluşturun ve yoğun tablolar için autovacuum parametrelerini tablo bazlı (SET STORAGE) özelleştirin.",
+        "tags": [
+            "postgresql",
+            "bloat",
+            "vacuum",
+            "ubuntu"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-10",
+        "author": "db-infra-specialist",
+        "metadata": {
+            "applies_to": [
+                "PostgreSQL 15"
+            ],
+            "related_cis": [
+                "HR-Portal-DB",
+                "Ubuntu-Srv-04"
+            ]
+        }
+    },
+    {
+        "id": "kb-database-0003",
+        "kb": "database_kb",
+        "title": "Oracle 19c Tablespace Kapasite Aşımı ve Veri Yazma Hatası",
+        "content": "Problem: FinansPro uygulaması üzerinden yeni kayıt oluşturulamıyor, sistem ORA-01653 hatası döndürüyor.\n\nBelirtiler: Uygulama loglarında 'java.sql.SQLException: ORA-01653: unable to extend table FINANS.TRANSACTIONS by 128 in tablespace DATA_TBS' hatası görülüyor.\n\nKök Neden: DATA_TBS tablespace'ine bağlı olan datafile'ların `autoextend` limitine ulaşması veya disk üzerinde yer kalmaması.\n\nAdım Adım Çözüm:\n1. Doluluk oranını kontrol edin: `SELECT tablespace_name, used_percent FROM dba_tablespace_usage_metrics;`.\n2. Mevcut datafile'ların durumunu sorgulayın: `SELECT file_name, bytes, autoextensible FROM dba_data_files;`.\n3. Eğer diskte yer varsa, datafile boyutunu artırın: `ALTER DATABASE DATAFILE '/u01/app/oracle/oradata/FINANS/data_tbs01.dbf' RESIZE 10G;`.\n4. Eğer disk doluysa, yeni bir datafile ekleyin (Farklı bir mount point): `ALTER TABLESPACE DATA_TBS ADD DATAFILE '/u02/app/oracle/oradata/FINANS/data_tbs02.dbf' SIZE 2G AUTOEXTEND ON;`.\n\nÖnleyici Tedbir: Enterprise Manager (OEM) üzerinde tablespace doluluk oranı %85 olduğunda 'Warning', %95 olduğunda 'Critical' alarmı kurulmalıdır.",
+        "tags": [
+            "oracle",
+            "tablespace",
+            "storage",
+            "finanspro"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-20",
+        "author": "db-infra-specialist",
+        "metadata": {
+            "applies_to": [
+                "Oracle 19c"
+            ],
+            "related_cis": [
+                "Finans-DB-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-database-0004",
+        "kb": "database_kb",
+        "title": "HR-Portal PostgreSQL Deadlock (Kilitlenme) Analizi",
+        "content": "Problem: HR-Portal uygulamasında bazı kullanıcı işlemleri rastgele şekilde başarısız oluyor ve sistem hata mesajı veriyor.\n\nBelirtiler: PostgreSQL hata loglarında 'ERROR: deadlock detected' mesajı ve ardından gelen 'Process 1234 waits for ShareLock on transaction 5678' detayları.\n\nKök Neden: Node.js tarafındaki paralel asenkron fonksiyonların, aynı veritabanı satırlarını farklı sırayla güncellemeye çalışması. Örn: İşlem A (Satır 1 sonra 2), İşlem B (Satır 2 sonra 1) güncellemeye çalışıyor.\n\nAdım Adım Çözüm:\n1. Loglardan hangi sorguların çakıştığını tespit edin: `pg_stat_activity` view'ını kullanarak bekleyen sessionları izleyin.\n2. Uygulama tarafında transaction yönetimini inceleyin. Tüm update işlemlerinin aynı sıralama ile (örneğin her zaman ID sırasına göre) yapıldığından emin olun.\n3. SQL sorgularında `SELECT ... FOR UPDATE` kullanımını minimize edin veya `SKIP LOCKED` opsiyonunu değerlendirin.\n4. Lock timeout değerini optimize edin: `SET lock_timeout = '5s';`.\n\nÖnleyici Tedbir: Uygulama kod analizinde (Static Analysis) iç içe geçmiş transaction yapılarını ve kontrolsüz paralelliği denetleyin.",
+        "tags": [
+            "postgresql",
+            "deadlock",
+            "performance",
+            "node-js"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-22",
+        "author": "db-infra-specialist",
+        "metadata": {
+            "applies_to": [
+                "PostgreSQL 15"
+            ],
+            "related_cis": [
+                "HR-Portal-App"
+            ]
+        }
+    },
+    {
+        "id": "kb-database-0005",
+        "kb": "database_kb",
+        "title": "Oracle TNS Listener Bağlantı Reddi Sorunu",
+        "content": "Problem: TechCorp ağındaki hiçbir istemci Oracle veritabanına bağlanamıyor.\n\nBelirtiler: 'TNS-12541: TNS:no listener' hatası alınıyor. Telnet ile 1521 portuna erişim sağlanamıyor.\n\nKök Neden: Fortinet Firewall üzerinde yapılan son kural değişikliğinin DB subnetini (10.0.x.x) engellemesi veya listener servisinin beklenmedik şekilde durması.\n\nAdım Adım Çözüm:\n1. Sunucuya SSH ile bağlanıp listener durumunu kontrol edin: `lsnrctl status`.\n2. Eğer durmuşsa başlatın: `lsnrctl start`.\n3. Sunucu lokalinde `sqlplus` ile bağlanmayı deneyin. Lokal bağlantı çalışıyor ama uzak çalışmıyorsa networkü inceleyin.\n4. Fortinet loglarını 'Deny' kuralı açısından kontrol edin. Port 1521'in açık olduğunu teyit edin.\n5. Listener.ora dosyasındaki host tanımlarının IP bazlı ve doğru olduğunu kontrol edin.\n\nÖnleyici Tedbir: Listener servisini 'Systemd' veya 'Oracle Restart' ile otomatik başlar duruma getirin ve dış ağ erişimlerini Fortinet üzerinde whitelist ile sabitleyin.",
+        "tags": [
+            "oracle",
+            "network",
+            "listener",
+            "fortinet"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-01-05",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Oracle 19c"
+            ],
+            "related_cis": [
+                "Finans-DB-01",
+                "Fortinet-FW"
+            ]
+        }
+    },
+    {
+        "id": "kb-database-0006",
+        "kb": "database_kb",
+        "title": "PostgreSQL 15 Streaming Replication Lag (Gecikme) Sorunu",
+        "content": "Problem: Read-only HR-Portal instance'larında veriler güncel değil (Primary ile Replica senkronizasyonu bozuldu).\n\nBelirtiler: `pg_stat_replication` view'ında `replay_lag` değerinin dakikalar mertebesine çıkması. Replica sunucusunda 'recovery.signal' dosyasının varlığına rağmen verilerin gelmemesi.\n\nKök Neden: Ubuntu sunucuları arasındaki Aruba switchlerde yaşanan network darboğazı veya Primary sunucu üzerinde aşırı WAL üretimi (Bulk Insert).\n\nAdım Adım Çözüm:\n1. Primary üzerinde WAL durumunu kontrol edin: `pg_current_wal_lsn()`.\n2. Replica üzerinde `pg_last_wal_replay_lsn()` ile farkı bulun.\n3. Network bant genişliğini `iperf` ile test edin. Gerekirse replikasyon trafiğini farklı bir VLAN'a alın.\n4. `max_wal_senders` ve `wal_keep_size` parametrelerini artırın.\n5. Eğer fark çok açılmışsa replikayı `pg_basebackup` ile yeniden clone'layın.\n\nÖnleyici Tedbir: Replikasyon lag değerini Zabbix/Grafana üzerinden izleyin ve 30 saniyeyi geçtiğinde alarm üretin.",
+        "tags": [
+            "postgresql",
+            "replication",
+            "high-availability",
+            "aruba"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-25",
+        "author": "db-infra-specialist",
+        "metadata": {
+            "applies_to": [
+                "PostgreSQL 15"
+            ],
+            "related_cis": [
+                "HR-DB-Replica"
+            ]
+        }
+    },
+    {
+        "id": "kb-database-0007",
+        "kb": "database_kb",
+        "title": "Oracle ORA-01555 'Snapshot Too Old' Hatası",
+        "content": "Problem: FinansPro ay sonu raporları çalıştırılırken yarıda kesiliyor ve hata veriyor.\n\nBelirtiler: 'ORA-01555: snapshot too old: rollback segment number with name \"_SYSSMU...\" too small' mesajı.\n\nKök Neden: Raporlama sorgusu çok uzun sürerken (örn. 2 saat), sorgunun başladığı andaki veri görüntüsünün (undo data) üzerine başka işlemler tarafından yazılması. Undo Retention süresinin yetersiz olması.\n\nAdım Adım Çözüm:\n1. Mevcut parametreyi kontrol edin: `SHOW PARAMETER undo_retention;`.\n2. Değeri raporun süresinden daha uzun bir saniyeye çekin: `ALTER SYSTEM SET undo_retention = 7200;` (2 saat).\n3. UNDO tablespace boyutunu kontrol edin ve gerekirse artırın: `ALTER DATABASE DATAFILE ... RESIZE;`.\n4. Tablespace için `RETENTION GUARANTEE` modunu açın (Bu işlem disk dolana kadar undo verisini korur).\n\nÖnleyici Tedbir: Uzun süren batch işlemlerini ve raporları, veritabanı yazma trafiğinin (DML) en düşük olduğu gece saatlerine planlayın.",
+        "tags": [
+            "oracle",
+            "undo",
+            "snapshot-too-old",
+            "finanspro"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-28",
+        "author": "db-infra-specialist",
+        "metadata": {
+            "applies_to": [
+                "Oracle 19c"
+            ],
+            "related_cis": [
+                "Finans-DB-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-database-0008",
+        "kb": "database_kb",
+        "title": "PostgreSQL pg_hba.conf Erişim Reddi Hatası",
+        "content": "Problem: Yeni kurulan bir uygulama sunucusu HR-Portal veritabanına bağlanamıyor.\n\nBelirtiler: 'FATAL: no pg_hba.conf entry for host \"10.0.10.55\", user \"hr_user\", database \"hr_portal\", SSL off' hatası.\n\nKök Neden: PostgreSQL'in client authentication konfigürasyon dosyasında (pg_hba.conf) yeni uygulama sunucusunun IP adresine izin verilmemiş olması.\n\nAdım Adım Çözüm:\n1. PostgreSQL sunucusuna SSH ile bağlanın: `/etc/postgresql/15/main/pg_hba.conf` dosyasını editörle açın.\n2. İlgili IP bloğu veya spesifik IP için şu satırı ekleyin: `host hr_portal hr_user 10.0.10.55/32 scram-sha-256`.\n3. Konfigürasyonu reload edin (Servis restartına gerek yoktur): `SELECT pg_reload_conf();` veya `sudo systemctl reload postgresql`.\n4. Bağlantıyı tekrar test edin.\n\nÖnleyici Tedbir: IP bazlı izinler yerine güvenli ağlarda subnet bazlı izinler (10.0.10.0/24) kullanın ve bu dosyayı Ansible ile merkezi olarak yönetin.",
+        "tags": [
+            "postgresql",
+            "security",
+            "authentication",
+            "ubuntu"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-18",
+        "author": "db-infra-specialist",
+        "metadata": {
+            "applies_to": [
+                "PostgreSQL 15"
+            ],
+            "related_cis": [
+                "HR-Portal-DB"
+            ]
+        }
+    },
+    {
+        "id": "kb-database-0009",
+        "kb": "database_kb",
+        "title": "FinansPro SQL Sorgu Performansı ve Index Eksikliği",
+        "content": "Problem: FinansPro ana sayfasındaki son işlemler listesi 15 saniyeden uzun sürede yükleniyor.\n\nBelirtiler: Oracle AWR (Automatic Workload Repository) raporunda bir SQL ID'sinin yüksek CPU ve IO beklediği görülüyor. 'TABLE ACCESS FULL' operasyonu raporlanıyor.\n\nKök Neden: 'TRANSACTIONS' tablosunun büyümesi (10M+ satır) ve sorguda kullanılan 'TRANSACTION_DATE' kolonunda indeks bulunmaması.\n\nAdım Adım Çözüm:\n1. SQL'in execution planını inceleyin: `EXPLAIN PLAN FOR SELECT ...;`.\n2. Eksik indeksi tespit edin. Performans testi yaparak şu indeksi oluşturun: `CREATE INDEX idx_trans_date ON TRANSACTIONS(transaction_date) ONLINE;`.\n3. Tablo istatistiklerini güncelleyin: `EXEC DBMS_STATS.GATHER_TABLE_STATS('FINANS', 'TRANSACTIONS');`.\n4. Sorguyu tekrar çalıştırarak 'Index Range Scan' yapıldığını teyit edin.\n\nÖnleyici Tedbir: Geliştirme aşamasında SQL Developer 'Real Time SQL Monitoring' aracını kullanın ve prod ortama çıkmadan önce execution plan onayını zorunlu tutun.",
+        "tags": [
+            "oracle",
+            "performance-tuning",
+            "index",
+            "awr"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-29",
+        "author": "db-infra-specialist",
+        "metadata": {
+            "applies_to": [
+                "Oracle 19c"
+            ],
+            "related_cis": [
+                "Finans-DB-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-database-0010",
+        "kb": "database_kb",
+        "title": "PostgreSQL Veritabanı Yolsuzluğu (Corruption) ve Kurtarma",
+        "content": "Problem: Sunucu ani elektrik kesintisi/hard reset sonrası PostgreSQL servisi açılmıyor.\n\nBelirtiler: Loglarda 'PANIC: could not locate actual control file' veya 'invalid page in block' hataları görülüyor. PostgreSQL process'i sürekli restart loop'a giriyor.\n\nKök Neden: Dosya sistemi seviyesinde (Ubuntu/ext4) meydana gelen bozulmanın PostgreSQL control file veya veri sayfalarına yansıması.\n\nAdım Adım Çözüm:\n1. Mevcut veri dizinini (PGDATA) yedekleyin: `cp -r /var/lib/postgresql/data /var/lib/postgresql/data_corrupt`.\n2. `pg_checksums` aracını kullanarak bozuk blokları tarayın.\n3. Eğer kontrol dosyası bozuksa `pg_resetwal` komutunu deneyin (Dikkat: Veri kaybı riski vardır!).\n4. En sağlıklı yöntem olarak; son başarılı Backup'ı (pg_backrest veya barman) farklı bir dizine dönün ve Point-in-Time Recovery (PITR) uygulayın.\n5. `recovery.signal` dosyasını oluşturup target time belirleyerek veritabanını ayağa kaldırın.\n\nÖnleyici Tedbir: Sunucuların bağlı olduğu UPS sistemlerini kontrol edin ve veritabanı disklerinde write-back cache özelliğini 'battery-backed' değilse kapatın.",
+        "tags": [
+            "postgresql",
+            "disaster-recovery",
+            "corruption",
+            "pitr"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-01-20",
+        "author": "db-infra-specialist",
+        "metadata": {
+            "applies_to": [
+                "PostgreSQL 15"
+            ],
+            "related_cis": [
+                "HR-Portal-DB"
+            ]
+        }
+    }
+]

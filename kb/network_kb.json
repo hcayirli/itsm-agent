@@ -1,0 +1,244 @@
+[
+    {
+        "id": "kb-network-0001",
+        "kb": "network_kb",
+        "title": "Cisco AnyConnect VPN Bağlantı Kopmaları ve MTU Sorunları",
+        "content": "Problem: Evden çalışan kullanıcılar Cisco AnyConnect üzerinden techcorp.local ağına bağlandıklarında, büyük veri transferi sırasında (özellikle FinansPro raporları indirirken) bağlantının aniden kopması.\n\nBelirtiler: 'The VPN connection was terminated by the remote host' hatası, ping paketlerinde kayıp olmaması ancak HTTP/HTTPS trafiğinin donması, paket parçalanma (fragmentation) hataları.\n\nKök Neden: Kullanıcı tarafındaki ISP altyapısının standart 1500 byte MTU değerini desteklememesi ve VPN tüneli içindeki paketlerin enkapsülasyon sonrası MTU sınırını aşarak parçalanması.\n\nAdım Adım Çözüm:\n1. Kullanıcının Windows 11 terminalinde 'netsh interface ipv4 show subinterfaces' komutuyla mevcut MTU değerini kontrol edin.\n2. Cisco ASA/FTD üzerinde VPN profilinde MTU değerini 1406 olarak güncelleyin.\n3. Headend tarafında 'sysopt connection mtu 1406' komutunu uygulayın.\n4. AnyConnect istemcisini yeniden başlatarak 'Adjust MSS' ayarının devreye girdiğini doğrulayın.\n\nÖnleyici Tedbir: Kurumsal VPN profillerine dinamik MTU tespiti (Path MTU Discovery) özelliğini ekleyin ve tüm uzak kullanıcılar için varsayılan MTU değerini 1390-1410 aralığında sabitleyin.",
+        "tags": [
+            "VPN",
+            "Cisco",
+            "MTU",
+            "AnyConnect"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-20",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Windows 11",
+                "Cisco ASA"
+            ],
+            "related_cis": [
+                "Cisco AnyConnect",
+                "AnyConnect VPN Profile"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-0002",
+        "kb": "network_kb",
+        "title": "Aruba Switch Port Güvenliği ve MAC Limit Aşımı",
+        "content": "Problem: TechCorp ofisindeki belirli departmanlarda kullanıcıların kablolu ağa erişememesi ve switch portlarının 'Admin Down' veya 'Discard' durumuna düşmesi.\n\nBelirtiler: Switch üzerindeki port ışığının sönük olması, Aruba Controller panelinde 'Security Violation' loglarının görülmesi, kullanıcının IP alamaması.\n\nKök Neden: Aruba switch portlarında tanımlı olan 'port-security mac-limit' (varsayılan: 2) değerinin, kullanıcıların IP telefon üzerinden bilgisayar bağlaması veya çoklu sanal makine çalıştırması nedeniyle aşılması.\n\nAdım Adım Çözüm:\n1. Sorunlu Aruba switch'e SSH ile bağlanın (10.0.x.x).\n2. 'show port-security interface <port_no>' komutuyla ihlali doğrulayın.\n3. 'port-security interface <port_no> clear-intrusion-status' komutuyla portu tekrar aktif hale getirin.\n4. Eğer kullanıcı meşru bir şekilde birden fazla MAC adresi kullanıyorsa, 'port-security interface <port_no> address-limit 4' komutuyla limiti artırın.\n\nÖnleyici Tedbir: IP telefon kullanılan portlarda 'voice-vlan' konfigürasyonunu optimize edin ve port-security limitlerini departman bazlı profil (User-Role) olarak merkezi bir şekilde (ClearPass üzerinden) yönetin.",
+        "tags": [
+            "Aruba",
+            "Switching",
+            "Port-Security",
+            "MAC-Limit"
+        ],
+        "severity": "low",
+        "last_verified": "2025-01-21",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Aruba 2930F",
+                "Aruba 5400R"
+            ],
+            "related_cis": [
+                "Aruba Access Switches"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-0003",
+        "kb": "network_kb",
+        "title": "Fortinet Firewall Üzerinde FinansPro DB Erişim Sorunu",
+        "content": "Problem: FinansPro uygulama sunucularının (10.0.10.x) Oracle 19c Finans Veritabanına (10.0.20.x) erişememesi sonucu oluşan 'Connection Timeout' hataları.\n\nBelirtiler: Uygulama loglarında 'java.net.ConnectException: Connection timed out', FortiGate loglarında 'Action: Deny, Policy ID: 0' veya 'Implicit Deny' mesajları.\n\nKök Neden: Veritabanı sunucusu için yapılan IP değişikliği sonrası mevcut firewall politikasının (Policy ID: 55) yeni IP adresini kapsamaması veya port (TCP 1521) kısıtlamasının yanlış uygulanması.\n\nAdım Adım Çözüm:\n1. FortiGate GUI üzerinden 'Policy & Objects > Firewall Policy' sekmesine gidin.\n2. 'FinansPro-to-Oracle' kuralını bulun.\n3. Source IP listesine uygulama sunucusu bloğunu (10.0.10.0/24), Destination IP listesine Oracle sunucu IP'sini ekleyin.\n4. Service kısmında 'Oracle' (TCP 1521) tanımlı olduğundan emin olun.\n5. Logları 'Forward Traffic' altından izleyerek trafiğin 'Accept' edildiğini doğrulayın.\n\nÖnleyici Tedbir: Veritabanı ve uygulama sunucuları için 'FQDN based policy' veya 'Address Groups' kullanarak statik IP bağımlılığını azaltın. Her kural değişikliği sonrası 'Policy Lookup' aracını kullanın.",
+        "tags": [
+            "Fortinet",
+            "Oracle",
+            "Firewall",
+            "FinansPro"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-22",
+        "author": "security-ops",
+        "metadata": {
+            "applies_to": [
+                "FortiGate 600E",
+                "Oracle 19c"
+            ],
+            "related_cis": [
+                "FinansPro App Server",
+                "Finans DB"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-0004",
+        "kb": "network_kb",
+        "title": "VPN Kullanıcıları İçin techcorp.local DNS Çözümleme Hatası",
+        "content": "Problem: VPN ile bağlı kullanıcıların HR-Portal web arayüzüne (hr.techcorp.local) erişememesi, ancak IP adresi üzerinden erişim sağlayabilmesi.\n\nBelirtiler: 'nslookup hr.techcorp.local' komutunun 'Non-existent domain' hatası vermesi, tarayıcıda DNS_PROBE_FINISHED_NXDOMAIN hatası.\n\nKök Neden: Cisco AnyConnect profilinde 'Split-DNS' ayarlarının eksik yapılandırılması ve istemci cihazın yerel ISP DNS sunucularını kullanmaya çalışması.\n\nAdım Adım Çözüm:\n1. Cisco ASDM veya CLI üzerinden 'Group Policy' ayarlarına gidin.\n2. 'Split-DNS' sekmesine 'techcorp.local' domainini ekleyin.\n3. 'DNS Server' listesinde dahili Active Directory Domain Controller IP'lerinin (10.0.1.10, 10.0.1.11) en üst sırada olduğunu doğrulayın.\n4. Kullanıcı tarafında 'ipconfig /flushdns' komutunu çalıştırın ve AnyConnect'i yeniden bağlayın.\n\nÖnleyici Tedbir: VPN profillerinde DNS Suffix listesini (techcorp.local) zorunlu hale getirin ve Okta üzerinden gelen kullanıcı rollerine göre DNS politikalarını merkezi olarak push edin.",
+        "tags": [
+            "DNS",
+            "VPN",
+            "AnyConnect",
+            "Active Directory"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-23",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Windows 11",
+                "Cisco AnyConnect"
+            ],
+            "related_cis": [
+                "Domain Controller",
+                "HR-Portal"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-0005",
+        "kb": "network_kb",
+        "title": "Ubuntu Sunucularda IP Çakışması ve Network Interface Down Sorunu",
+        "content": "Problem: 10.0.50.x subnetindeki Ubuntu 22.04 LTS uygulama sunucularının rastgele ağdan düşmesi ve SSH bağlantısının kopması.\n\nBelirtiler: 'dmesg' loglarında 'eth0: IPv4 address conflict' uyarısı, sunucu konsolunda ağ arayüzünün 'UP' olmasına rağmen trafik geçirmemesi.\n\nKök Neden: Manuel atanan (Static) IP adreslerinin, DHCP scope içerisinde rezerve edilmemesi nedeniyle DHCP üzerinden başka bir cihaza aynı IP'nin atanması.\n\nAdım Adım Çözüm:\n1. Sorunlu sunucuda 'arping -I eth0 10.0.50.x' komutuyla ağda aynı IP'ye sahip başka bir MAC adresi olup olmadığını kontrol edin.\n2. Çakışma varsa, çakışan MAC adresini Aruba Switch 'show mac-address' komutuyla takip ederek hangi portta olduğunu bulun.\n3. Ubuntu üzerinde Netplan konfigürasyonunu (/etc/netplan/*.yaml) kontrol edin ve IP'yi geçici olarak değiştirin.\n4. DHCP sunucusu (techcorp.local AD) üzerinde çakışan IP için 'Exclusion Range' veya 'Reservation' oluşturun.\n\nÖnleyici Tedbir: Tüm sunucu IP atamalarını bir IPAM (IP Address Management) yazılımı üzerinden takip edin ve statik IP bloklarını DHCP havuzundan kesin olarak ayırın.",
+        "tags": [
+            "Ubuntu",
+            "IP-Conflict",
+            "Linux",
+            "DHCP"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-24",
+        "author": "sysadmin-team",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04 LTS"
+            ],
+            "related_cis": [
+                "App Server Cluster"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-0006",
+        "kb": "network_kb",
+        "title": "Okta MFA ve Fortinet Firewall Handshake Zaman Aşımı",
+        "content": "Problem: Kullanıcıların VPN girişi yaparken Okta push bildirimini onaylamasına rağmen login sürecinin 'Authentication Timeout' ile sonuçlanması.\n\nBelirtiler: FortiGate loglarında 'RADIUS timeout' veya 'Pending MFA' mesajları, Okta dashboard'unda 'Success' görünmesine rağmen bağlantının kurulamaması.\n\nKök Neden: FortiGate RADIUS timeout değerinin (varsayılan 5 saniye), kullanıcının telefonu eline alıp push bildirimini onaylaması için yetersiz kalması.\n\nAdım Adım Çözüm:\n1. FortiGate CLI'a bağlanın.\n2. 'config system radius-server' altına gidin ve Okta RADIUS sunucusunu seçin.\n3. 'set timeout 60' komutuyla zaman aşımı süresini 60 saniyeye çıkarın.\n4. 'config user group' altında VPN grubunun RADIUS timeout ayarlarını güncelleyin.\n5. Test için bir kullanıcı ile MFA sürecini tekrarlayın.\n\nÖnleyici Tedbir: MFA geçiş sürelerini analiz ederek tüm ağ cihazlarındaki RADIUS/LDAP timeout sürelerini global bir politika ile 30-60 saniye arasına sabitleyin.",
+        "tags": [
+            "Okta",
+            "MFA",
+            "Fortinet",
+            "RADIUS"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-25",
+        "author": "security-ops",
+        "metadata": {
+            "applies_to": [
+                "FortiGate 600E",
+                "Okta RADIUS Agent"
+            ],
+            "related_cis": [
+                "Okta MFA Service"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-0007",
+        "kb": "network_kb",
+        "title": "Aruba Access Point Roaming Sırasında Bağlantı Kesilmesi",
+        "content": "Problem: TechCorp ofis içerisinde hareket eden (laptop ile toplantı odasına giden) kullanıcıların Wi-Fi bağlantısının saniyelerce kesilmesi ve Teams çağrılarının düşmesi.\n\nBelirtiler: '802.11 Fast Roaming' hataları, Windows Event Viewer'da 'WLAN-AutoConfig' kopma kayıtları, ping paketlerinde 4-5 saniyelik boşluk.\n\nKök Neden: Access Pointler (AP) arasındaki sinyal çakışması (interference) veya '802.11r' (Fast Transition) protokolünün bazı eski laptop network kartları tarafından desteklenmemesi.\n\nAdım Adım Çözüm:\n1. Aruba Mobility Controller üzerinden 'Radio Management' ayarlarına gidin.\n2. Komşu AP'lerin sinyal seviyelerini (min-transmit-power) -65dBm olacak şekilde optimize edin.\n3. SSID profilinde '802.11r' ayarını 'Adaptive' veya 'Enable' durumundan 'Disable' durumuna çekerek uyumluluk testi yapın.\n4. Kullanıcı cihazlarındaki Intel Wi-Fi kartı sürücülerini Windows 11 için güncelleyin.\n\nÖnleyici Tedbir: Ofis genelinde profesyonel bir RF site survey (Ekahau vb.) yaptırın ve 'Client Match' özelliğini aktif ederek istemcilerin en uygun AP'ye yönlendirilmesini sağlayın.",
+        "tags": [
+            "Aruba",
+            "Wireless",
+            "Roaming",
+            "Wi-Fi"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-26",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Aruba AP-515",
+                "Windows 11"
+            ],
+            "related_cis": [
+                "Aruba Mobility Controller"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-0008",
+        "kb": "network_kb",
+        "title": "Inter-VLAN Routing Yavaşlığı ve HR-Portal Gecikme Sorunu",
+        "content": "Problem: HR-Portal (10.0.30.x) kullanıcılarının, portal üzerindeki Node.js API'lerine erişirken yüksek gecikme (latency) yaşaması.\n\nBelirtiler: Chrome DevTools ağ sekmesinde 'Waiting (TTFB)' süresinin 2 saniyenin üzerinde olması, farklı VLAN'daki cihazlar arası dosya transferinin yavaşlığı.\n\nKök Neden: Core Aruba switch üzerindeki inter-vlan routing sırasında 'CPU-bound' trafik oluşması veya VLAN'lar arası asimetrik routing yapılması.\n\nAdım Adım Çözüm:\n1. Core switch üzerinde 'show cpu' komutuyla yükü kontrol edin.\n2. 'show ip route' komutuyla HR-Portal VLAN gateway'inin doğru switch üzerinde sonlandığını doğrulayın.\n3. Gereksiz ACL (Access Control List) kurallarını temizleyin veya donanımsal (ASIC) hızlandırma kullanılan katmana taşıyın.\n4. Uygulama sunucusu tarafında MTU değerinin switch MTU (1500) ile eşleştiğinden emin olun.\n\nÖnleyici Tedbir: Trafiği yoğun olan VLAN'lar arası geçişleri firewall yerine L3 Switch üzerinde donanımsal olarak sonlandırın ve ağ topolojisini 'Spine-Leaf' modeline göre optimize edin.",
+        "tags": [
+            "VLAN",
+            "Routing",
+            "Aruba",
+            "Performance"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-27",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Aruba Core Switch",
+                "HR-Portal"
+            ],
+            "related_cis": [
+                "VLAN 30 - HR"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-0009",
+        "kb": "network_kb",
+        "title": "PostgreSQL 15 Veritabanı Bağlantılarında Paket Kaybı",
+        "content": "Problem: Uygulama sunucularının PostgreSQL 15 veritabanına bağlanırken 'SSL syscall error: EOF detected' hatası alması.\n\nBelirtiler: TCP retransmission oranlarının %5'in üzerine çıkması, veritabanı sorgularının bazen çok hızlı bazen çok yavaş çalışması.\n\nKök Neden: Uygulama sunucusu ile veritabanı arasındaki sanal switch (vSwitch) üzerinde 'Large Send Offload' (LSO) özelliğinin ağ paketlerini bozması.\n\nAdım Adım Çözüm:\n1. Ubuntu uygulama sunucusunda 'ethtool -k eth0' komutuyla offload özelliklerini listeleyin.\n2. 'sudo ethtool -K eth0 tso off gso off' komutuyla TCP ve Generic Segmentation Offload özelliklerini kapatın.\n3. Sorun devam ederse, PostgreSQL sunucusunda 'tcp_keepalives' parametrelerini firewall timeout değerlerinden (genelde 3600s) daha kısa olacak şekilde (örneğin 600s) güncelleyin.\n4. Ağdaki Aruba switch portlarında 'CRC Errors' olup olmadığını 'show interface' ile kontrol edin.\n\nÖnleyici Tedbir: Sanallaştırma katmanında (VMware/KVM) ağ kartı sürücülerini VMXNET3 olarak güncelleyin ve donanımsal offloading özelliklerini kontrollü bir şekilde devreye alın.",
+        "tags": [
+            "PostgreSQL",
+            "Networking",
+            "Linux",
+            "Packet-Loss"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-28",
+        "author": "sysadmin-team",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04",
+                "PostgreSQL 15"
+            ],
+            "related_cis": [
+                "PostgreSQL App DB"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-0010",
+        "kb": "network_kb",
+        "title": "Backup Penceresinde Ağ Darboğazı ve Bant Genişliği Throttling",
+        "content": "Problem: Her gece 02:00 - 05:00 saatleri arasında VPN ve diğer uzak erişim hizmetlerinin aşırı yavaşlaması.\n\nBelirtiler: ISP uplink kullanımının %95 seviyesine çıkması, ping sürelerinin 10ms'den 500ms'ye fırlaması.\n\nKök Neden: FinansPro ve Oracle DB yedeklerinin (Backup) off-site cloud storage'a aktarılırken tüm bant genişliğini tüketmesi ve QoS kurallarının eksikliği.\n\nAdım Adım Çözüm:\n1. FortiGate üzerinde 'Traffic Shaper' profili oluşturun.\n2. Backup trafiği için kullanılan IP aralıklarına (10.0.x.x) 'Maximum Bandwidth' limitini toplam kapasitenin %30'u olacak şekilde tanımlayın.\n3. 'Traffic Shaping Policy' yazarak bu kuralı yedekleme saatlerine göre planlayın (Schedule).\n4. VPN trafiğine (AnyConnect) 'Guaranteed Bandwidth' önceliği (Priority: High) atayın.\n\nÖnleyici Tedbir: Yedekleme trafiği için ayrı bir fiziksel internet hattı (Out-of-band) kullanın veya yedekleme yazılımı (Veeam/Rman) üzerinden bant genişliği kısıtlama (throttling) ayarlarını aktif edin.",
+        "tags": [
+            "QoS",
+            "Bandwidth",
+            "Fortinet",
+            "Backup"
+        ],
+        "severity": "low",
+        "last_verified": "2025-01-29",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "FortiGate 600E",
+                "Oracle Backup Task"
+            ],
+            "related_cis": [
+                "WAN Uplink"
+            ]
+        }
+    }
+]

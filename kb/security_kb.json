@@ -1,0 +1,243 @@
+[
+    {
+        "id": "kb-security-0001",
+        "kb": "security_kb",
+        "title": "Okta MFA Push Bildirimlerinde Sürekli Zaman Aşımı ve Senkronizasyon Sorunu",
+        "content": "Problem: TechCorp bünyesindeki kullanıcıların Okta MFA push bildirimlerini onaylamasına rağmen sisteme giriş yapamaması ve 'Request Timed Out' hatası alması.\nBelirtiler: Kullanıcının telefonuna bildirim ulaşıyor ancak onay butonuna basıldığında 'Invalid session' veya 'Link expired' uyarısı çıkıyor. Okta Dashboard üzerinde 'User failed to respond to MFA challenge' logları görülüyor.\nKök Neden: techcorp.local domaini ile Okta bulut servisleri arasındaki zaman senkronizasyonunun (NTP) bozulması veya kullanıcının mobil cihazındaki saat ayarının 'Otomatik' modda olmaması. Ayrıca, Fortinet Firewall üzerindeki SSL Inspection kuralının Okta paketlerini bozması.\nAdım Adım Çözüm:\n1. Kullanıcının mobil cihazında Ayarlar > Genel > Tarih ve Saat sekmesinden 'Otomatik Ayarla' seçeneğinin aktif olduğunu doğrulayın.\n2. Techcorp.local Domain Controller sunucularında 'w32tm /query /status' komutu ile NTP senkronizasyonunu kontrol edin.\n3. Fortinet Firewall üzerinde *.okta.com adresi için 'SSL Inspection Bypass' kuralı tanımlayın.\n4. Kullanıcının Okta Verify uygulamasını kaldırıp tekrar 'Enrollment' yapmasını sağlayın.\nÖnleyici Tedbir: Şirket telefonlarında saat ayarlarının değiştirilmesini MDM (Mobile Device Management) üzerinden kısıtlayın ve NTP sunucularını yedekli hale getirin.",
+        "tags": [
+            "Okta",
+            "MFA",
+            "Authentication",
+            "Firewall"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-15",
+        "author": "sec-ops-team",
+        "metadata": {
+            "applies_to": [
+                "Okta Verify Mobile App",
+                "Windows 11 Client"
+            ],
+            "related_cis": [
+                "Okta-Tenant-01",
+                "Fortigate-FG-200F"
+            ]
+        }
+    },
+    {
+        "id": "kb-security-0002",
+        "kb": "security_kb",
+        "title": "Finans DB (Oracle 19c) Üzerinde Yetkisiz SYSDBA Giriş Denemesi Tespiti",
+        "content": "Problem: Finans DB üzerinde mesai saatleri dışında, tanımlanmamış bir IP adresinden (10.0.45.212) SYSDBA yetkisiyle bağlantı denemesi yapılması.\nBelirtiler: Oracle Audit loglarında ORA-01017: invalid username/password hatasının sıklaşması ve 'Logon as SYSDBA' flag'inin tetiklenmesi. SIEM üzerinde yüksek öncelikli alarm oluşması.\nKök Neden: FinansPro uygulaması üzerinde bir test modülünün konfigürasyon dosyasında (application-dev.properties) gömülü kalan yönetici parolasının sızdırılması veya içeriden bir personelin yetki yükseltme denemesi.\nAdım Adım Çözüm:\n1. 10.0.45.212 IP adresini Aruba Switch üzerinden port bazlı karantinaya alın.\n2. Oracle 19c üzerinde 'ALTER USER SYS IDENTIFIED BY <yeni_guclu_sifre>' komutuyla parolayı güncelleyin.\n3. SQL*Net konfigürasyonunda (sqlnet.ora) 'TCP.VALIDNODE_CHECKING = YES' ve 'TCP.INVITED_NODES' parametrelerini sadece uygulama sunucularına izin verecek şekilde güncelleyin.\n4. FinansPro kaynak kodlarını statik kod analizinden (SAST) geçirin.\nÖnleyici Tedbir: Oracle Database Vault kurulumunu gerçekleştirerek SYSDBA yetkilerinin kısıtlanmasını sağlayın ve 'Least Privilege' prensibini uygulayın.",
+        "tags": [
+            "Oracle 19c",
+            "Database Security",
+            "Audit",
+            "SOC"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-01-20",
+        "author": "db-admin-lead",
+        "metadata": {
+            "applies_to": [
+                "Oracle 19c Enterprise",
+                "FinansPro"
+            ],
+            "related_cis": [
+                "FIN-DB-SRV-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-security-0003",
+        "kb": "security_kb",
+        "title": "HR-Portal (React/Node.js) Üzerinde XSS (Cross-Site Scripting) Zafiyeti",
+        "content": "Problem: HR-Portal uygulamasının çalışan yorumları kısmında, zararlı JavaScript kodlarının diğer kullanıcıların tarayıcılarında çalıştırılabildiği tespit edildi.\nBelirtiler: Kullanıcı profil sayfasında beklenmedik pop-up pencerelerinin açılması veya session cookie bilgilerinin dış bir sunucuya (log-collector.xyz) post edilmesi.\nKök Neden: Node.js backend tarafında kullanıcıdan alınan inputların yeterince sanitize edilmemesi ve React tarafında 'dangerouslySetInnerHTML' özelliğinin yanlış kullanımı.\nAdım Adım Çözüm:\n1. Node.js tarafında 'dompurify' ve 'jsdom' kütüphanelerini kullanarak tüm girdi alanlarını temizleyin.\n2. React frontend bileşenlerinde inputları standart JSX escape mekanizmasıyla render edin.\n3. HTTP yanıt başlıklarına (Header) 'Content-Security-Policy (CSP)' ekleyin. (Örn: default-src 'self').\n4. Session çerezlerine 'HttpOnly' ve 'Secure' flag'lerini ekleyin.\nÖnleyici Tedbir: CI/CD pipeline süreçlerine 'Snyk' veya 'OWASP Dependency-Check' araçlarını entegre ederek bağımlılık zafiyetlerini otomatik tarayın.",
+        "tags": [
+            "Node.js",
+            "React",
+            "Web Security",
+            "XSS"
+        ],
+        "severity": "high",
+        "last_verified": "2025-02-02",
+        "author": "appsec-specialist",
+        "metadata": {
+            "applies_to": [
+                "HR-Portal v2.4",
+                "Ubuntu 22.04 LTS"
+            ],
+            "related_cis": [
+                "HR-APP-SRV-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-security-0004",
+        "kb": "security_kb",
+        "title": "Cisco AnyConnect VPN Üzerinden Anormal Veri Transferi ve Exfiltration Şüphesi",
+        "content": "Problem: Bir kullanıcı hesabının VPN üzerinden 2 saatlik bir sürede 45 GB veriyi dışarıya transfer etmesi.\nBelirtiler: Fortinet IPS loglarında 'Data Leakage' imzalarının tetiklenmesi ve AnyConnect session süresinin standartların çok üzerine çıkması. Hedef IP'nin bilinen bir bulut depolama servisi olması.\nKök Neden: Kullanıcının techcorp.local domain parolasının 'phishing' saldırısıyla ele geçirilmesi ve saldırganın VPN üzerinden dosya sunucularına (SMB) erişmesi.\nAdım Adım Çözüm:\n1. Cisco ASA/FTD üzerinden ilgili kullanıcının VPN oturumunu derhal sonlandırın.\n2. Active Directory üzerinden kullanıcı hesabını 'Disable' durumuna getirin ve tüm Okta sessionlarını temizleyin.\n3. Dosya sunucusu loglarını inceleyerek hangi klasörlere erişildiğini tespit edin.\n4. Kullanıcının bilgisayarını ağdan izole ederek tam kapsamlı malware taraması (EDR scan) başlatın.\nÖnleyici Tedbir: VPN bağlantıları için 'Adaptive Access Policy' oluşturarak, alışılagelmişin dışındaki trafik desenlerinde (Anomalous Traffic) otomatik bloklama uygulayın.",
+        "tags": [
+            "VPN",
+            "Cisco AnyConnect",
+            "DLP",
+            "Data Breach"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-01-28",
+        "author": "network-security-eng",
+        "metadata": {
+            "applies_to": [
+                "Cisco AnyConnect",
+                "File Server"
+            ],
+            "related_cis": [
+                "VPN-GW-01",
+                "TECHCORP-FS-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-security-0005",
+        "kb": "security_kb",
+        "title": "Ubuntu 22.04 Sunucularında SSH Brute Force Saldırı Girişimleri",
+        "content": "Problem: Uygulama sunucularının auth.log dosyalarında binlerce başarısız SSH giriş denemesi görülmesi.\nBelirtiler: Sunucu CPU yükünün artması, log disk alanının hızla dolması ve '/var/log/auth.log' dosyasında 'Failed password for invalid user' mesajlarının saniyede onlarca kez tekrarlanması.\nKök Neden: Sunucuların SSH (Port 22) servisinin genel internete (public) açık olması ve default konfigürasyonda kalması.\nAdım Adım Çözüm:\n1. '/etc/ssh/sshd_config' dosyasında 'PasswordAuthentication no' ve 'PermitRootLogin no' ayarlarını yapın.\n2. SSH portunu standart 22 yerine 10.0.x.x bloğundan erişilebilen yüksek bir portla değiştirin.\n3. 'fail2ban' servisini kurarak 3 kez hatalı deneme yapan IP adreslerini iptables üzerinden bloklayın.\n4. Sadece TechCorp VPN bloğuna izin verecek şekilde 'ufw' kurallarını güncelleyin.\nÖnleyici Tedbir: Sunucu yönetiminde SSH Key-based authentication kullanımını zorunlu tutun ve 'Jump Server' mimarisine geçiş yapın.",
+        "tags": [
+            "Ubuntu",
+            "SSH",
+            "Linux Security",
+            "Brute Force"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-10",
+        "author": "linux-sysadmin",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04 LTS"
+            ],
+            "related_cis": [
+                "APP-SRV-POOL"
+            ]
+        }
+    },
+    {
+        "id": "kb-security-0006",
+        "kb": "security_kb",
+        "title": "Active Directory Servis Hesaplarında Tekrarlayan Account Lockout Sorunu",
+        "content": "Problem: 'svc_finanspro' gibi kritik servis hesaplarının şifresi doğru olmasına rağmen sürekli olarak kilitlenmesi.\nBelirtiler: Netwrix/AD Audit üzerinde 'Event ID 4740' (A member account was locked out) loglarının 10.0.10.55 IP'li eski bir sunucudan geldiğinin görülmesi.\nKök Neden: Bir sunucu veya serviste eski şifrenin Windows Credential Manager üzerinde 'cached' kalması ve servisin sürekli bu eski şifreyle login denemesi yapması.\nAdım Adım Çözüm:\n1. Microsoft Lockout Status aracını (LockoutStatus.exe) kullanarak kilitlemenin hangi DC üzerinde gerçekleştiğini bulun.\n2. Belirtilen kaynak sunucuda (10.0.10.55) 'Control Panel > Credential Manager' altındaki tüm techcorp.local kayıtlarını temizleyin.\n3. 'services.msc' konsolunda ilgili servisin 'Log On' sekmesindeki şifreyi manuel olarak güncelleyin.\n4. Sunucuyu yeniden başlatın veya servisi restart edin.\nÖnleyici Tedbir: Servis hesapları için 'Managed Service Accounts (gMSA)' kullanarak şifre yönetimini otomatize edin ve manuel şifre değişim ihtiyacını ortadan kaldırın.",
+        "tags": [
+            "Active Directory",
+            "Account Lockout",
+            "Windows 11",
+            "Authentication"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-02-05",
+        "author": "ad-specialist",
+        "metadata": {
+            "applies_to": [
+                "techcorp.local Domain Controllers"
+            ],
+            "related_cis": [
+                "TC-DC-01",
+                "TC-DC-02"
+            ]
+        }
+    },
+    {
+        "id": "kb-security-0007",
+        "kb": "security_kb",
+        "title": "FinansPro Java Uygulamasında Güvensiz Deserialization Zafiyeti Yaması",
+        "content": "Problem: FinansPro uygulamasının kullandığı eski bir Java kütüphanesinin (Apache Commons Collections) uzaktan kod çalıştırmaya (RCE) izin vermesi.\nBelirtiler: Uygulama loglarında beklenmedik 'ClassCastException' hataları ve sunucu üzerinde yetkisiz oluşturulmuş geçici dosyaların (.tmp) tespiti.\nKök Neden: Java nesnelerinin serileştirilmesi ve geri yüklenmesi (deserialization) sırasında güvenilmeyen verilerin doğrulanmaması.\nAdım Adım Çözüm:\n1. Uygulamanın pom.xml (Maven) dosyasındaki bağımlılıkları kontrol edin ve etkilenen kütüphaneyi en güncel sürüme yükseltin.\n2. Sunucu tarafında Java Runtime Environment (JRE) versiyonunu en az 17.0.x seviyesine çekin.\n3. Java sanal makinesi (JVM) parametrelerine '-Djdk.serialFilter' kuralını ekleyerek sadece beyaz listedeki sınıfların yüklenmesine izin verin.\n4. Uygulama önündeki Fortinet WAF üzerinde Java Deserialization imzalarını aktif hale getirin.\nÖnleyici Tedbir: Yazılım geliştirme sürecinde 'Shift-Left' güvenliği uygulayarak kod yazım aşamasında kütüphane açıklarını tarayın.",
+        "tags": [
+            "Java",
+            "Spring",
+            "FinansPro",
+            "RCE",
+            "Security Patching"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-01-30",
+        "author": "devsecops-eng",
+        "metadata": {
+            "applies_to": [
+                "FinansPro Java v3.1"
+            ],
+            "related_cis": [
+                "FIN-APP-SRV-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-security-0008",
+        "kb": "security_kb",
+        "title": "Aruba Kablosuz Ağ Altyapısında Rogue AP Tespiti",
+        "content": "Problem: Şirket kampüsü içerisinde 'TechCorp_Free_WiFi' adında yetkisiz ve şifresiz bir SSID'nin yayın yapması.\nBelirtiler: Aruba Central dashboard üzerinde 'Rogue Access Point Detected' uyarısının çıkması ve bazı kurumsal cihazların bu ağa bağlanmaya çalışması.\nKök Neden: Bir çalışanın veya ziyaretçinin ofis içerisindeki bir LAN portuna izinsiz olarak kendi kişisel router cihazını takması (Shadow IT).\nAdım Adım Çözüm:\n1. Aruba Central üzerinden Rogue AP'nin hangi kurumsal AP tarafından 'hear' edildiğini ve sinyal seviyesini (RSSI) kontrol edin.\n2. Rogue AP'nin bağlı olduğu Aruba Switch portunu (MAC adresi üzerinden) tespit edin.\n3. 'interface gigabitethernet x/x/x' modunda 'shutdown' komutu ile ilgili portu fiziksel olarak kapatın.\n4. Güvenlik personeli eşliğinde fiziksel lokasyona giderek cihazı imha/müsadere edin.\nÖnleyici Tedbir: Tüm Aruba Switch portlarında '802.1X Port Security' ve 'Sticky MAC' özelliklerini aktif hale getirerek yetkisiz cihaz takılmasını engelleyin.",
+        "tags": [
+            "Aruba",
+            "Network Security",
+            "WiFi",
+            "Rogue AP"
+        ],
+        "severity": "high",
+        "last_verified": "2025-02-01",
+        "author": "network-arch",
+        "metadata": {
+            "applies_to": [
+                "Aruba AP-515",
+                "Aruba 2930F Switch"
+            ],
+            "related_cis": [
+                "WIFI-CONTROLLER-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-security-0009",
+        "kb": "security_kb",
+        "title": "PostgreSQL 15 Veritabanında SQL Injection Girişimlerinin Engellenmesi",
+        "content": "Problem: HR-Portal üzerinden yapılan arama sorgularında veritabanı hatalarının (Syntax error near '--') oluşması ve veri sızıntısı şüphesi.\nBelirtiler: PostgreSQL 'pg_log' dosyalarında 'SELECT * FROM users WHERE username = ''' OR '1'='1'...' benzeri ifadelerin görülmesi.\nKök Neden: HR-Portal Node.js backend servisinin veritabanı sorgularını oluştururken 'string concatenation' kullanması ve parametrik sorgu (prepared statements) yapısını tercih etmemesi.\nAdım Adım Çözüm:\n1. Node.js 'pg' kütüphanesinde sorguları `client.query('SELECT * FROM users WHERE id = $1', [userId])` formatına dönüştürün.\n2. PostgreSQL tarafında 'pg_audit' eklentisini kurarak hassas tablolardaki tüm sorguları loglayın.\n3. Veritabanı kullanıcısının yetkilerini sadece gerekli tablolara 'SELECT' yapacak şekilde kısıtlayın (Least Privilege).\n4. Fortinet WAF (Web Application Firewall) üzerinde SQL Injection koruma profilini 'Block' moduna alın.\nÖnleyici Tedbir: Geliştiriciler için güvenli kod yazma eğitimi (OWASP Top 10 focus) düzenleyin ve manuel kod gözden geçirme seanslarını artırın.",
+        "tags": [
+            "PostgreSQL",
+            "SQL Injection",
+            "Database Security",
+            "Node.js"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-22",
+        "author": "db-security-analyst",
+        "metadata": {
+            "applies_to": [
+                "PostgreSQL 15",
+                "HR-Portal"
+            ],
+            "related_cis": [
+                "HR-DB-SRV-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-security-0010",
+        "kb": "security_kb",
+        "title": "Windows 11 İşletim Sistemlerinde LAPS (Local Administrator Password Solution) Yapılandırması",
+        "content": "Problem: TechCorp bünyesindeki tüm Windows 11 laptoplarda yerel 'Administrator' parolasının aynı olması ve 'Lateral Movement' saldırılarına davetiye çıkarması.\nBelirtiler: Bir cihazın ele geçirilmesi durumunda saldırganın aynı parola ile ağdaki diğer tüm cihazlarda yönetici yetkisi elde edebilmesi.\nKök Neden: Merkezi bir yerel parola yönetim sisteminin bulunmaması ve imaj kurulumlarında standart parola kullanılması.\nAdım Adım Çözüm:\n1. techcorp.local AD şemasına Windows LAPS eklentilerini kurun (Update-LapsADSchema).\n2. GPO üzerinden 'Computer Configuration > Policies > Administrative Templates > System > LAPS' yolunu izleyerek politikayı aktif edin.\n3. Parola karmaşıklığını 16 karakter ve değiştirilme periyodunu 30 gün olarak set edin.\n4. Domain makinelerine 'Windows LAPS' özelliğini içeren güncellemelerin yüklendiğinden (KB5025239) emin olun.\nÖnleyici Tedbir: Yerel yönetici parolasını manuel olarak bilinen tüm IT personelinden gizleyin; ihtiyaç anında parolanın AD üzerinden 'Read-Only' yetkisiyle alınmasını sağlayın.",
+        "tags": [
+            "Windows 11",
+            "LAPS",
+            "GPO",
+            "Endpoint Security"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-02-10",
+        "author": "endpoint-security-lead",
+        "metadata": {
+            "applies_to": [
+                "Windows 11 Enterprise",
+                "Active Directory"
+            ],
+            "related_cis": [
+                "CLIENT-W11-POOL"
+            ]
+        }
+    }
+]

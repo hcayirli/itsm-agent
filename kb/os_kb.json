@@ -1,0 +1,225 @@
+[
+    {
+        "id": "kb-os-0001",
+        "kb": "os_kb",
+        "title": "Ubuntu 22.04 LTS Kernel Panic - VFS: Unable to mount root fs",
+        "content": "Problem: Ubuntu 22.04 LTS uygulama sunucusu, sistem güncellemesi sonrası yeniden başlatıldığında boot aşamasında takılıyor.\n\nBelirtiler: Ekranda 'Kernel Panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)' hatası görünüyor ve sistem tamamen tepkisiz kalıyor.\n\nKök Neden: Yazılım güncellemesi sırasında 'initramfs' imajının düzgün oluşturulmaması veya /boot dizinindeki disk alanının dolması nedeniyle yeni kernel imajının eksik yazılması.\n\nAdım Adım Çözüm:\n1. Sunucuyu yeniden başlatın ve GRUB menüsüne girmek için 'Shift' veya 'Esc' tuşuna basın.\n2. 'Advanced options for Ubuntu' sekmesine girin ve çalışan bir önceki kernel versiyonunu seçerek sistemi açın.\n3. Terminale bağlanın ve disk alanını kontrol edin: `df -h /boot`. Eğer doluysa eski kernelleri `apt autoremove` ile temizleyin.\n4. Sorunlu kernel için initramfs imajını şu komutla yeniden oluşturun: `sudo update-initramfs -u -k [kernel_versiyonu]`.\n5. GRUB konfigürasyonunu güncelleyin: `sudo update-grub`.\n6. Sistemi normal şekilde yeniden başlatın.\n\nÖnleyici Tedbir: Sunucu güncellemelerinden önce /boot dizininde en az 200MB boş alan olduğundan emin olun ve kritik güncellemeler öncesi VM snapshot alın.",
+        "tags": [
+            "ubuntu",
+            "kernel-panic",
+            "boot-issue"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-01-15",
+        "author": "os-infrastructure-team",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04 LTS"
+            ],
+            "related_cis": [
+                "App-Server-01",
+                "App-Server-02"
+            ]
+        }
+    },
+    {
+        "id": "kb-os-0002",
+        "kb": "os_kb",
+        "title": "Windows 11 Domain Trust Relationship Failure",
+        "content": "Problem: TechCorp personeli, Windows 11 yüklü kurumsal laptopunda domain hesabı ile oturum açamıyor.\n\nBelirtiler: Giriş ekranında 'The trust relationship between this workstation and the primary domain failed' hatası alınıyor.\n\nKök Neden: Bilgisayarın Active Directory (techcorp.local) üzerindeki makine parolasının, istemci tarafındaki parola ile senkronizasyonunun bozulması (genellikle uzun süre network dışında kalma veya yanlış geri yükleme sonrası oluşur).\n\nAdım Adım Çözüm:\n1. Cihazda yerel yönetici (Local Admin) hesabı ile oturum açın.\n2. PowerShell'i yönetici olarak çalıştırın.\n3. Şu komutu kullanarak güven ilişkisini onarmayı deneyin: `Test-ComputerSecureChannel -Repair -Credential (Get-Credential)`.\n4. Eğer komut başarısız olursa, cihazı Workgroup'a çekin, yeniden başlatın ve tekrar domain'e (techcorp.local) dahil edin.\n5. Bilgisayar nesnesini AD Users and Computers üzerinden kontrol ederek 'Enabled' olduğundan emin olun.\n\nÖnleyici Tedbir: Uzun süre ofis dışında kalacak kullanıcıların VPN (Cisco AnyConnect) üzerinden periyodik olarak domain ile senkronize olmalarını sağlayın.",
+        "tags": [
+            "windows-11",
+            "active-directory",
+            "domain-trust"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-10",
+        "author": "it-support-l3",
+        "metadata": {
+            "applies_to": [
+                "Windows 11 Enterprise"
+            ],
+            "related_cis": [
+                "techcorp.local DC"
+            ]
+        }
+    },
+    {
+        "id": "kb-os-0003",
+        "kb": "os_kb",
+        "title": "Ubuntu LVM Disk Genişletme ve 'Disk Full' Sorunu",
+        "content": "Problem: FinansPro uygulama sunucusunda veritabanı yazma hataları alınıyor ve sistem logları yazılamıyor.\n\nBelirtiler: `df -h` komutu /dev/mapper/ubuntu--vg-ubuntu--lv dizininin %100 dolu olduğunu gösteriyor. Uygulama tarafında 'No space left on device' hataları mevcut.\n\nKök Neden: /var/log dizinindeki kontrolsüz büyüyen log dosyaları veya uygulama verilerinin beklenenden hızlı artması sonucu LVM biriminin dolması.\n\nAdım Adım Çözüm:\n1. Öncelikle acil alan açmak için eski logları temizleyin: `sudo journalctl --vacuum-time=1d`.\n2. Sanallaştırma platformu üzerinden disk kapasitesini artırın.\n3. OS üzerinde yeni disk alanını tarayın: `echo 1 > /sys/class/block/sda/device/rescan`.\n4. Physical Volume'u genişletin: `sudo pvresize /dev/sda3`.\n5. Logical Volume'u boş alanın tamamını kullanacak şekilde artırın: `sudo lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv`.\n6. Dosya sistemini online olarak genişletin: `sudo resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv`.\n\nÖnleyici Tedbir: Logrotate ayarlarını kontrol edin ve disk doluluk oranı %80'e ulaştığında Zabbix üzerinden uyarı mekanizmasını aktif tutun.",
+        "tags": [
+            "ubuntu",
+            "lvm",
+            "disk-management"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-12",
+        "author": "os-infrastructure-team",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04 LTS"
+            ],
+            "related_cis": [
+                "Finans-DB-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-os-0004",
+        "kb": "os_kb",
+        "title": "Windows 11 BitLocker Recovery Key Loop Hatası",
+        "content": "Problem: Kullanıcı bilgisayarı her açtığında BitLocker kurtarma anahtarı (Recovery Key) ekranıyla karşılaşıyor.\n\nBelirtiler: Doğru anahtar girilip Windows açılsa bile, bir sonraki yeniden başlatmada sistem tekrar anahtar istiyor.\n\nKök Neden: BIOS/UEFI güncellemeleri, TPM çipinin güvenli önyükleme (Secure Boot) verilerindeki değişiklikler veya donanım konfigürasyonundaki (Docking station kullanımı gibi) tutarsızlıklar.\n\nAdım Adım Çözüm:\n1. BitLocker kurtarma anahtarını kullanarak Windows'u açın.\n2. Denetim Masası > BitLocker Sürücü Şifrelemesi yoluna gidin.\n3. 'Korumayı Askıya Al' (Suspend Protection) seçeneğine tıklayın.\n4. Bilgisayarı yeniden başlatın. Bu işlem TPM'in yeni konfigürasyonu kaydetmesini sağlar.\n5. Windows açıldığında 'Korumayı Sürdür' (Resume Protection) diyerek BitLocker'ı tekrar aktif edin.\n6. Eğer sorun devam ederse, CMD'yi yönetici olarak açıp `manage-bde -protectors -delete C: -type TPM` ve ardından `manage-bde -protectors -add C: -tpm` komutlarını uygulayın.\n\nÖnleyici Tedbir: BIOS güncellemeleri veya donanım değişiklikleri yapılmadan önce BitLocker koruması her zaman askıya alınmalıdır.",
+        "tags": [
+            "windows-11",
+            "bitlocker",
+            "security"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-18",
+        "author": "endpoint-security-team",
+        "metadata": {
+            "applies_to": [
+                "Windows 11 Pro/Ent"
+            ],
+            "related_cis": [
+                "User-Laptops"
+            ]
+        }
+    },
+    {
+        "id": "kb-os-0005",
+        "kb": "os_kb",
+        "title": "Ubuntu SSH 'Permission Denied' Publickey Hatası",
+        "content": "Problem: Sistem yöneticileri HR-Portal sunucusuna SSH anahtarı ile bağlanamıyor.\n\nBelirtiler: 'Permission denied (publickey)' hatası alınıyor. Şifre ile giriş denendiğinde de reddediliyor.\n\nKök Neden: `/home/user/.ssh` dizininin veya `authorized_keys` dosyasının izinlerinin (permissions) SSH daemon standartlarına uymayacak kadar geniş olması (Security hardening gereği SSHD bu durumda bağlantıyı reddeder).\n\nAdım Adım Çözüm:\n1. Sunucuya sanal konsol üzerinden erişim sağlayın.\n2. Kullanıcının ana dizinine gidin ve izinleri kontrol edin: `ls -ld ~/.ssh`.\n3. İzinleri şu şekilde düzeltin:\n   - `chmod 700 ~/.ssh` (Sadece kullanıcı okuyabilir/yazabilir)\n   - `chmod 600 ~/.ssh/authorized_keys` (Sadece kullanıcı okuyabilir/yazabilir)\n4. Dosya sahipliğinin doğru olduğunu teyit edin: `chown -R $USER:$USER ~/.ssh`.\n5. `/etc/ssh/sshd_config` dosyasında `PubkeyAuthentication yes` ayarının aktif olduğunu kontrol edin.\n6. Servisi yeniden başlatın: `sudo systemctl restart ssh`.\n\nÖnleyici Tedbir: Kullanıcı yetkilendirmelerini merkezi bir configuration management aracı (Ansible/Puppet) ile yöneterek dosya izinlerini standartlaştırın.",
+        "tags": [
+            "ubuntu",
+            "ssh",
+            "security"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-20",
+        "author": "os-infrastructure-team",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04 LTS"
+            ],
+            "related_cis": [
+                "HR-Portal-Srv"
+            ]
+        }
+    },
+    {
+        "id": "kb-os-0006",
+        "kb": "os_kb",
+        "title": "Windows 11 Blue Screen (BSOD) - IRQL_NOT_LESS_OR_EQUAL",
+        "content": "Problem: Belirli Windows 11 iş istasyonlarında rastgele zamanlarda mavi ekran hatası oluşuyor.\n\nBelirtiler: Hata kodu 'IRQL_NOT_LESS_OR_EQUAL' ve suçlu dosya genellikle 'ntoskrnl.exe' veya bir network sürücüsü olarak görünüyor.\n\nKök Neden: Uyumsuz veya hatalı yüklenmiş Wi-Fi/NIC sürücüleri. TechCorp envanterindeki yeni nesil laptoplarda kullanılan v22.x network sürücülerinin Windows 11 23H2 ile yaşadığı kernel seviyesindeki çakışma.\n\nAdım Adım Çözüm:\n1. `C:\\Windows\\Minidump` altındaki döküm dosyalarını 'BlueScreenView' veya 'WinDbg' ile analiz edin.\n2. Eğer hata 'Netwtw10.sys' (Intel Wi-Fi) kaynaklıysa, cihazı Güvenli Modda açın.\n3. Aygıt Yöneticisi'nden mevcut ağ sürücüsünü kaldırın.\n4. TechCorp yazılım kütüphanesindeki onaylı 'v21.120.x' (stable) sürücüsünü yükleyin.\n5. Hızlı Başlatma (Fast Startup) özelliğini kapatın, çünkü bu bazen sürücülerin bellek adreslerini yanlış yüklemesine neden olur.\n\nÖnleyici Tedbir: SCCM/Intune üzerinden sürücü güncellemelerini 'pilot grup' testinden geçirmeden genel kullanıma sunmayın.",
+        "tags": [
+            "windows-11",
+            "bsod",
+            "drivers"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-22",
+        "author": "desktop-ops-team",
+        "metadata": {
+            "applies_to": [
+                "Windows 11 23H2"
+            ],
+            "related_cis": [
+                "Client-Laptops"
+            ]
+        }
+    },
+    {
+        "id": "kb-os-0007",
+        "kb": "os_kb",
+        "title": "Ubuntu Systemd-journald Yüksek CPU Kullanımı",
+        "content": "Problem: Ubuntu sunucularında sistem yavaşlığı ve yüksek Load Average değerleri gözlemleniyor.\n\nBelirtiler: `top` veya `htop` komutunda `systemd-journald` işleminin tek başına %100 CPU kullandığı görülüyor.\n\nKök Neden: Bir uygulamanın (örn: HR-Portal node.js servisi) saniyede yüzlerce hata logu üretmesi ve journald'nin bu veriyi diskteki bozuk journal dosyalarına yazmaya çalışırken döngüye girmesi.\n\nAdım Adım Çözüm:\n1. Hangi uygulamanın aşırı log ürettiğini bulun: `sudo journalctl -f`.\n2. Mevcut bozuk olabilecek log dosyalarını temizleyin: `sudo journalctl --vacuum-size=100M`.\n3. Journal servisini geçici olarak durdurup yeniden başlatın: `sudo systemctl restart systemd-journald`.\n4. `/etc/systemd/journald.conf` dosyasını düzenleyin: `RateLimitIntervalSec=30s` ve `RateLimitBurst=1000` değerlerini ekleyerek log akışını kısıtlayın.\n5. `systemd-analyze verify` ile konfigürasyonu kontrol edin.\n\nÖnleyici Tedbir: Uygulama geliştirme ekibiyle iletişime geçerek 'Error logging' seviyesini production ortamında 'Info' veya 'Warning' olarak güncelletin.",
+        "tags": [
+            "ubuntu",
+            "systemd",
+            "performance"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-25",
+        "author": "os-infrastructure-team",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04 LTS"
+            ],
+            "related_cis": [
+                "All-Ubuntu-Servers"
+            ]
+        }
+    },
+    {
+        "id": "kb-os-0008",
+        "kb": "os_kb",
+        "title": "Windows 11 GPO Sync ve Zaman Senkronizasyonu Sorunu",
+        "content": "Problem: İstemci bilgisayarlarında yeni tanımlanan Group Policy objeleri uygulanmıyor.\n\nBelirtiler: `gpresult /r` komutu çalıştırıldığında 'The following GPOs were not applied because they were filtered out' veya 'AD connectivity failed' mesajları alınıyor. Ayrıca sistem saatinin DC ile birkaç dakika farkı olduğu fark ediliyor.\n\nKök Neden: Kerberos kimlik doğrulama protokolü, istemci ve Domain Controller arasındaki zaman farkının 5 dakikadan fazla olmasına izin vermez. Zaman senkronizasyonu bozulduğunda GPO güncellemeleri de durur.\n\nAdım Adım Çözüm:\n1. CMD'yi yönetici olarak açın.\n2. Zaman farkını kontrol edin: `w32tm /query /status`.\n3. Zaman servisini DC'ye yönlendirerek zorla güncelleyin:\n   - `net stop w32time`\n   - `w32tm /config /syncfromflags:manual /manualpeerlist:\"dc01.techcorp.local\"` (Burada dc01 ana DC ismidir)\n   - `w32tm /config /reliable:YES`\n   - `net start w32time`\n   - `w32tm /resync`\n4. Saat düzeldiğinde GPO'yu tetikleyin: `gpupdate /force`.\n\nÖnleyici Tedbir: DHCP sunucusu üzerinden tüm istemcilere doğru NTP sunucu bilgilerinin (Option 42) dağıtıldığından emin olun.",
+        "tags": [
+            "windows-11",
+            "gpo",
+            "ntp"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-27",
+        "author": "it-support-l3",
+        "metadata": {
+            "applies_to": [
+                "Windows 11",
+                "techcorp.local"
+            ],
+            "related_cis": [
+                "Domain-Controllers"
+            ]
+        }
+    },
+    {
+        "id": "kb-os-0009",
+        "kb": "os_kb",
+        "title": "Ubuntu 22.04 Python Sürüm Çakışması ve Servis Başlatma Hatası",
+        "content": "Problem: HR-Portal (React/Node.js) sunucusunda çalışan yardımcı bir Python script'i OS güncellemesi sonrası çalışmayı durdurdu.\n\nBelirtiler: 'ModuleNotFoundError: No module named 'pkg_resources'' hatası alınıyor ve uygulama bağımlılıkları yüklenemiyor.\n\nKök Neden: Ubuntu 22.04 ile gelen Python 3.10 sürümünün, sistem genelindeki `pip` paketlerini 'dist-packages' altına alması ve eski sanal ortamların (venv) bu yapıya uyum sağlayamaması.\n\nAdım Adım Çözüm:\n1. Uygulama dizinine gidin ve mevcut bozuk venv'i silin: `rm -rf venv/`.\n2. Yeni bir sanal ortam oluşturun: `python3 -m venv venv`.\n3. Sanal ortamı aktif edin: `source venv/bin/activate`.\n4. Gerekli paketleri temiz bir şekilde tekrar yükleyin: `pip install --upgrade pip` ve `pip install -r requirements.txt`.\n5. HR-Portal servisini systemd üzerinden yeniden başlatın: `sudo systemctl restart hr-portal`.\n\nÖnleyici Tedbir: Uygulama bağımlılıklarını sistem Python'ından izole etmek için her zaman sanal ortam (virtualenv) kullanın ve mümkünse Docker konteyner mimarisine geçiş yapın.",
+        "tags": [
+            "ubuntu",
+            "python",
+            "hr-portal"
+        ],
+        "severity": "low",
+        "last_verified": "2025-01-28",
+        "author": "devops-team",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04",
+                "HR-Portal"
+            ],
+            "related_cis": [
+                "App-Server-05"
+            ]
+        }
+    },
+    {
+        "id": "kb-os-0010",
+        "kb": "os_kb",
+        "title": "Windows 11 User Profile Service Login Hatası",
+        "content": "Problem: Kullanıcı bilgisayarını açtığında masaüstü yerine 'Siz geçici bir profille oturum açtınız' uyarısı alıyor.\n\nBelirtiler: Kullanıcının dosyaları masaüstünde görünmüyor ve yapılan hiçbir değişiklik kalıcı olmuyor. Olay Görüntüleyicisi'nde Event ID 1511 hatası mevcut.\n\nKök Neden: Windows kayıt defterindeki (Registry) kullanıcı profil anahtarının bozulması veya bir antivirüs taramasının login sırasında profil klasörünü kilitlemesi.\n\nAdım Adım Çözüm:\n1. Başka bir yönetici hesabıyla oturum açın.\n2. `regedit.exe` uygulamasını başlatın.\n3. `HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProfileList` yoluna gidin.\n4. Sol tarafta `.bak` uzantılı bir SID (S-1-5-21...) anahtarı olup olmadığını kontrol edin.\n5. Eğer hem normal hem de `.bak` uzantılı aynı SID varsa; normal olanı silin ve `.bak` olanın adını sonundaki eki silerek (sadece SID kalacak şekilde) değiştirin.\n6. 'State' değerini 0, 'RefCount' değerini 0 yapın.\n7. Bilgisayarı yeniden başlatın ve kullanıcının tekrar giriş yapmasını sağlayın.\n\nÖnleyici Tedbir: Kullanıcı profillerinin güvenliği için disk sağlığını (chkdsk) düzenli kontrol edin ve profil verilerini OneDrive/Folder Redirection ile yedekleyin.",
+        "tags": [
+            "windows-11",
+            "user-profile",
+            "registry"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-30",
+        "author": "desktop-ops-team",
+        "metadata": {
+            "applies_to": [
+                "Windows 11 Enterprise"
+            ],
+            "related_cis": [
+                "User-Workstations"
+            ]
+        }
+    }
+]

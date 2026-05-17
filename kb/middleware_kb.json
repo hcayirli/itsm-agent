@@ -1,0 +1,236 @@
+[
+    {
+        "id": "kb-middleware-0001",
+        "kb": "middleware_kb",
+        "title": "FinansPro HikariCP Connection Pool Exhaustion Sorunu",
+        "content": "Problem: FinansPro (Java/Spring) uygulaması yoğun saatlerde veritabanı bağlantı isteğine yanıt veremiyor.\nBelirtiler: Uygulama loglarında 'HikariPool-1 - Connection is not available, request timed out after 30000ms' hatası görülüyor. Kullanıcılar HR-Portal üzerinden finansal verilere erişirken timeout alıyor.\nKök Neden: Oracle 19c veritabanına giden aktif connection sayısının, havuz limitine (max-pool-size) ulaşması ve bağlantıların kod seviyesinde doğru kapatılmaması (leak).\nAdım Adım Çözüm: 1. Ubuntu 22.04 üzerindeki uygulama loglarını tail -f ile izleyin. 2. Application.properties dosyasında 'spring.datasource.hikari.maximum-pool-size' değerini 20'den 50'ye çıkarın. 3. 'spring.datasource.hikari.leak-detection-threshold' parametresini 2000ms olarak set ederek sızıntı yapan metodları tespit edin. 4. Uygulamayı restart edin.\nÖnleyici Tedbir: Kod seviyesinde @Transactional anotasyonlarının doğruluğunu kontrol edin ve uzun süren raporlama sorgularını read-only replicalara yönlendirin.",
+        "tags": [
+            "HikariCP",
+            "Spring-Boot",
+            "Oracle-19c",
+            "Java"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-01-15",
+        "author": "middleware-team",
+        "metadata": {
+            "applies_to": [
+                "FinansPro v2.4"
+            ],
+            "related_cis": [
+                "finans-db-01",
+                "finans-app-srv-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-middleware-0002",
+        "kb": "middleware_kb",
+        "title": "HR-Portal Node.js Heap Memory Limit Aşımı",
+        "content": "Problem: HR-Portal (React/Node.js) sunucusu rastgele zamanlarda çöküyor ve kendini yeniden başlatıyor.\nBelirtiler: Ubuntu systemd loglarında 'FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory' hatası izleniyor.\nKök Neden: Node.js varsayılan heap limitinin (512MB/1GB) büyük JSON veri setlerini işlerken yetersiz kalması.\nAdım Adım Çözüm: 1. HR-Portal servis dosyasını (/etc/systemd/system/hr-portal.service) düzenleyin. 2. ExecStart komutuna '--max-old-space-size=4096' parametresini ekleyin. 3. 'systemctl daemon-reload' komutunu çalıştırın. 4. 'systemctl restart hr-portal' ile servisi başlatın.\nÖnleyici Tedbir: Büyük veri setlerini istemciye göndermeden önce sunucu tarafında pagination (sayfalama) uygulayın.",
+        "tags": [
+            "Node.js",
+            "Heap-Memory",
+            "Ubuntu-22.04",
+            "React"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-10",
+        "author": "devops-team",
+        "metadata": {
+            "applies_to": [
+                "HR-Portal v1.8"
+            ],
+            "related_cis": [
+                "hr-portal-srv-02"
+            ]
+        }
+    },
+    {
+        "id": "kb-middleware-0003",
+        "kb": "middleware_kb",
+        "title": "Okta MFA ve Spring Security Entegrasyon Senkronizasyon Hatası",
+        "content": "Problem: techcorp.local domainindeki kullanıcılar Okta MFA sonrasında FinansPro uygulamasına login olamıyor.\nBelirtiler: '401 Unauthorized' hatası ve loglarda 'Invalid state parameter' uyarısı.\nKök Neden: Uygulama sunucusu ile Okta arasındaki zaman farkının (NTP drift) 30 saniyeyi aşması.\nAdım Adım Çözüm: 1. Ubuntu sunucuda 'timedatectl' komutu ile saati kontrol edin. 2. 'ntpdate -u pool.ntp.org' komutu ile saati senkronize edin. 3. Systemd-timesyncd servisini aktif edin. 4. Uygulama tarafında session cookie timeout değerlerini kontrol edin.\nÖnleyici Tedbir: Tüm middleware sunucularında merkezi bir NTP sunucusu (10.0.1.5) kullanımını zorunlu hale getirin.",
+        "tags": [
+            "Okta",
+            "MFA",
+            "Security",
+            "NTP"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-12",
+        "author": "sec-ops",
+        "metadata": {
+            "applies_to": [
+                "FinansPro",
+                "HR-Portal"
+            ],
+            "related_cis": [
+                "okta-connector"
+            ]
+        }
+    },
+    {
+        "id": "kb-middleware-0004",
+        "kb": "middleware_kb",
+        "title": "PostgreSQL 15 Uygulama Bağlantı Zaman Aşımı (Idle Timeout)",
+        "content": "Problem: HR-Portal arka plan işçileri (workers) PostgreSQL veritabanına bağlanırken kopmalar yaşıyor.\nBelirtiler: 'Postgresql: unexpected EOF on client connection' logları ve uygulama tarafında 'SocketTimeoutException'.\nKök Neden: Fortinet Firewall üzerinde tanımlı olan TCP idle session timeout süresinin, veritabanı keep-alive süresinden kısa olması.\nAdım Adım Çözüm: 1. Fortinet FW üzerinde 10.0.2.0/24 bloğundan PostgreSQL portuna (5432) giden trafik için 'session-ttl' değerini artırın. 2. PostgreSQL tarafında 'tcp_keepalives_idle' değerini 60 saniyeye düşürün. 3. Node.js pg-pool konfigürasyonunda 'idleTimeoutMillis' değerini 30000 olarak güncelleyin.\nÖnleyici Tedbir: Network katmanı ile uygulama katmanı arasındaki timeout değerlerini standardize edin.",
+        "tags": [
+            "PostgreSQL",
+            "Network",
+            "Firewall",
+            "Node.js"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-05",
+        "author": "db-admin",
+        "metadata": {
+            "applies_to": [
+                "App-DB-Cluster"
+            ],
+            "related_cis": [
+                "fortinet-fw-01",
+                "pg-srv-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-middleware-0005",
+        "kb": "middleware_kb",
+        "title": "FinansPro Java Uygulama Sunucusu 'Too Many Open Files' Hatası",
+        "content": "Problem: Uygulama bir süre çalıştıktan sonra yeni dosya açamıyor ve ağ bağlantısı kabul etmiyor.\nBelirtiler: Loglarda 'java.io.IOException: Too many open files' mesajı.\nKök Neden: Ubuntu 22.04 varsayılan user limitlerinin (ulimit) düşük olması ve uygulamanın log dosyalarını veya soketleri açık bırakması.\nAdım Adım Çözüm: 1. '/etc/security/limits.conf' dosyasına 'techcorp soft nofile 65536' ve 'techcorp hard nofile 65536' satırlarını ekleyin. 2. 'sysctl -p' komutunu çalıştırın. 3. Java uygulamasını yürüten kullanıcının session'ını yenileyin. 4. Kodda 'try-with-resources' bloklarını kontrol edin.\nÖnleyici Tedbir: Monitoring sisteminde (Prometheus) 'process_open_fds' metriği için threshold alarmı kurun.",
+        "tags": [
+            "Linux",
+            "Java",
+            "Ulimit",
+            "File-Descriptors"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-18",
+        "author": "system-arch",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04 Servers"
+            ],
+            "related_cis": [
+                "finans-app-srv-all"
+            ]
+        }
+    },
+    {
+        "id": "kb-middleware-0006",
+        "kb": "middleware_kb",
+        "title": "Nginx Reverse Proxy 502 Bad Gateway Hatası",
+        "content": "Problem: HR-Portal üzerinden gelen bazı istekler '502 Bad Gateway' hatası ile dönüyor.\nBelirtiler: Tarayıcıda 502 hatası, Nginx error.log dosyasında 'connect() failed (111: Connection refused) while connecting to upstream'.\nKök Neden: PM2 (Process Manager) altındaki Node.js servisinin crash olması veya portun dinlenmemesi.\nAdım Adım Çözüm: 1. 'pm2 status' komutu ile HR-Portal servisinin durumunu kontrol edin. 2. Eğer servis 'errored' ise 'pm2 logs' ile hata detayına bakın. 3. Nginx konfigürasyonundaki proxy_pass adresinin (örn: localhost:3000) doğruluğunu teyit edin. 4. 'pm2 restart hr-portal' ile servisi ayağa kaldırın.\nÖnleyici Tedbir: PM2 'max_restarts' ve 'min_uptime' ayarlarını optimize ederek sürekli crash döngülerini engelleyin.",
+        "tags": [
+            "Nginx",
+            "PM2",
+            "Node.js",
+            "Reverse-Proxy"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-20",
+        "author": "middleware-team",
+        "metadata": {
+            "applies_to": [
+                "HR-Portal Frontend"
+            ],
+            "related_cis": [
+                "nginx-lb-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-middleware-0007",
+        "kb": "middleware_kb",
+        "title": "Oracle JDBC Driver ve Java 17 Versiyon Uyumsuzluğu",
+        "content": "Problem: FinansPro v3.0 güncellemesi sonrası veritabanı bağlantıları başarısız oluyor.\nBelirtiler: 'java.lang.AbstractMethodError: oracle.jdbc.driver.T4CConnection.isValid(I)Z' hatası.\nKök Neden: Java 17 runtime üzerinde eski sürüm (ojdbc6/ojdbc7) JDBC driver kullanımı.\nAdım Adım Çözüm: 1. Maven/Gradle bağımlılıklarını kontrol edin. 2. Mevcut driver'ı 'ojdbc8' veya 'ojdbc11' (Oracle 19c uyumlu) sürümüne yükseltin. 3. 'pom.xml' dosyasında bağımlılığı güncelleyip projeyi yeniden build edin. 4. Uygulamayı deploy edin.\nÖnleyici Tedbir: Major Java versiyon geçişlerinden önce 'Middleware Compatibility Matrix' belgesini kontrol edin.",
+        "tags": [
+            "Oracle",
+            "JDBC",
+            "Java-17",
+            "Dependency"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-22",
+        "author": "l3-support",
+        "metadata": {
+            "applies_to": [
+                "FinansPro v3.0"
+            ],
+            "related_cis": [
+                "finans-db-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-middleware-0008",
+        "kb": "middleware_kb",
+        "title": "Spring Cloud Config Server Git Senkronizasyon Sorunu",
+        "content": "Problem: Uygulamalar yeni konfigürasyon değerlerini (10.0.1.20 config-server) çekemiyor.\nBelirtiler: Uygulama başlangıcında 'Vault/Git repository not found' hatası ve eski parametrelerin aktif kalması.\nKök Neden: Config Server'ın bağlı olduğu Git reposu için kullanılan SSH key'in süresinin dolması veya techcorp.local DNS çözünürlüğü hatası.\nAdım Adım Çözüm: 1. Config Server loglarından SSH authentication hatasını doğrulayın. 2. '/home/config-user/.ssh/id_rsa' key'ini yenileyin ve Git sunucusuna ekleyin. 3. DNS sorununa karşı '/etc/hosts' dosyasını kontrol edin. 4. 'curl -X POST http://localhost:8888/monitor' ile manuel refresh tetikleyin.\nÖnleyici Tedbir: SSH key'ler için otomatik yenileme ve monitoring uyarıları oluşturun.",
+        "tags": [
+            "Spring-Cloud",
+            "Config-Server",
+            "Git",
+            "SSH"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-25",
+        "author": "middleware-team",
+        "metadata": {
+            "applies_to": [
+                "Microservices Infrastructure"
+            ],
+            "related_cis": [
+                "config-srv-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-middleware-0009",
+        "kb": "middleware_kb",
+        "title": "Redis Cache Eviction ve Performans Kaybı",
+        "content": "Problem: HR-Portal ana sayfası yüklenme hızı 2 saniyeden 15 saniyeye çıktı.\nBelirtiler: Redis loglarında 'maxmemory-policy' tetiklenmesi ve 'OOM command not allowed when used memory > 'maxmemory'' hatası.\nKök Neden: Redis'in 10.0.x.x ağındaki sunucuda ayrılan belleği doldurması ve eski anahtarları (keys) silememesi.\nAdım Adım Çözüm: 1. 'redis-cli info memory' ile kullanımı kontrol edin. 2. 'redis.conf' dosyasında 'maxmemory-policy' değerini 'allkeys-lru' olarak değiştirin. 3. Bellek limitini fiziksel RAM'in %75'ine kadar artırın. 4. 'redis-cli flushall' (dikkatli kullanın) ile geçici rahatlama sağlayın.\nÖnleyici Tedbir: Önbelleğe alınan verilere mutlaka bir TTL (Time-To-Live) süresi tanımlayın.",
+        "tags": [
+            "Redis",
+            "Caching",
+            "Performance",
+            "OOM"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-28",
+        "author": "system-arch",
+        "metadata": {
+            "applies_to": [
+                "HR-Portal Cache Layer"
+            ],
+            "related_cis": [
+                "redis-srv-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-middleware-0010",
+        "kb": "middleware_kb",
+        "title": "Java RMI/JMX Port Çakışması ve Monitoring Kesintisi",
+        "content": "Problem: NewRelic/Zabbix üzerinden FinansPro JVM metrikleri alınamıyor.\nBelirtiler: 'Connection refused to host: 10.0.1.15; nested exception is: java.net.ConnectException: Connection refused'.\nKök Neden: Dinamik JMX portunun Fortinet Firewall tarafından engellenmesi veya aynı portun başka bir Java process tarafından işgal edilmesi.\nAdım Adım Çözüm: 1. 'netstat -tulpn | grep 9010' ile port kullanımını kontrol edin. 2. Java startup parametrelerine '-Dcom.sun.management.jmxremote.rmi.port=9010' ekleyerek RMI portunu sabitleyin. 3. Fortinet FW üzerinde 9010 portuna izin verildiğini teyit edin. 4. Uygulamayı restart edin.\nÖnleyici Tedbir: Tüm middleware katmanında JMX portlarını standart bir aralıkta (örn: 9000-9100) rezerve edin.",
+        "tags": [
+            "JMX",
+            "Java",
+            "Monitoring",
+            "Firewall"
+        ],
+        "severity": "low",
+        "last_verified": "2025-01-30",
+        "author": "l3-support",
+        "metadata": {
+            "applies_to": [
+                "FinansPro",
+                "JVM-Monitoring"
+            ],
+            "related_cis": [
+                "finans-app-srv-01"
+            ]
+        }
+    }
+]

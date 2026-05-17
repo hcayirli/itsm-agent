@@ -1,0 +1,238 @@
+[
+    {
+        "id": "kb-network-device-0001",
+        "kb": "network_device_kb",
+        "title": "Aruba Kenar Switchlerde VLAN Erişimi ve Tagging Problemleri",
+        "content": "Problem: TechCorp 3. kat ofisindeki bazı kullanıcılar 'techcorp.local' domainine bağlanamıyor ve internet erişimi sağlayamıyor. IP adresi 169.254.x.x (APIPA) olarak görülüyor.\n\nBelirtiler: Kullanıcı bilgisayarları DHCP üzerinden IP alamıyor. Manuel IP verildiğinde ise 10.0.10.1 (Gateway) adresine ping atılamıyor. Aruba switch üzerindeki ilgili portun ışığı yeşil yanıyor ancak trafik geçmiyor.\n\nKök Neden: Kenar switch ile Core switch arasındaki Trunk port konfigürasyonunda 'VLAN 20' (Kullanıcı VLAN'ı) etiketinin (tagging) yanlışlıkla kaldırıldığı tespit edilmiştir. Yapılan son rutin güncelleme sırasında konfigürasyon senkronizasyon hatası oluşmuştur.\n\nAdım Adım Çözüm:\n1. Aruba Switch (10.0.0.5) CLI ekranına SSH (Port 22) üzerinden bağlanın.\n2. 'show vlan' komutu ile VLAN 20'nin durumunu kontrol edin.\n3. 'interface 24' (Uplink portu) komutu ile port detayına girin.\n4. 'vlan 20 tagged' komutunu çalıştırarak VLAN'ı trunk portuna ekleyin.\n5. 'show vlan 20' komutu ile portun 'tagged' olarak listede olduğunu doğrulayın.\n6. 'write memory' komutu ile konfigürasyonu kaydedin.\n\nÖnleyici Tedbir: Port konfigürasyon değişikliklerinden önce 'checkpoint' alınmalı ve AirWave yönetim yazılımı üzerinden konfigürasyon uyumluluk (compliance) taramaları haftalık olarak çalıştırılmalıdır.",
+        "tags": [
+            "Aruba",
+            "VLAN",
+            "Switching",
+            "Connectivity"
+        ],
+        "severity": "high",
+        "last_verified": "2026-02-15",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Aruba 2930F",
+                "Aruba 5406R"
+            ],
+            "related_cis": [
+                "SW-FLOOR3-01",
+                "CORE-SW-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-device-0002",
+        "kb": "network_device_kb",
+        "title": "Fortinet Firewall Üzerinde Yüksek CPU Kullanımı ve SSL Inspection Sorunu",
+        "content": "Problem: Mesai saatleri içerisinde uygulama erişimlerinde ciddi yavaşlamalar ve paket kayıpları yaşanıyor. FinansPro uygulamasına girişler timeout hatası veriyor.\n\nBelirtiler: FortiGate Dashboard üzerinde CPU kullanımı %95 seviyelerinde seyrediyor. 'diagnose sys top' komutu 'wad' ve 'ipsengine' süreçlerinin en üstte olduğunu gösteriyor. Kullanıcılar web sayfalarının 'gateway timeout' verdiğini raporluyor.\n\nKök Neden: HR-Portal üzerinden yapılan yoğun dosya transferleri sırasında 'Deep SSL Inspection' profilinin tüm trafiği decrypt etmeye çalışması ve donanım hızlandırmanın (ASIC) limitlerine ulaşılması.\n\nAdım Adım Çözüm:\n1. FortiGate GUI üzerinden 'Security Profiles -> SSL/SSH Inspection' menüsüne gidin.\n2. 'Deep Inspection' profilini inceleyin.\n3. Güvenilir kaynaklar (Microsoft, Okta, Bankacılık siteleri) için 'Exempt from SSL Inspection' listesini güncelleyin.\n4. CLI üzerinden 'config global' -> 'config system npu' altından 'fastpath' ayarlarının aktif olduğunu doğrulayın.\n5. CPU normal seviyeye (%40-50) düşene kadar IPS profillerini geçici olarak 'Monitor Only' moduna alın.\n\nÖnleyici Tedbir: SSL Inspection stratejisi 'Deep Inspection' yerine kritik olmayan trafik için 'Certificate Inspection' olarak değiştirilmeli. Donanım kapasitesini aşan trafik için FortiGate 600F serisine upgrade planlanmalı.",
+        "tags": [
+            "Fortinet",
+            "Firewall",
+            "CPU",
+            "SSL-Inspection"
+        ],
+        "severity": "critical",
+        "last_verified": "2026-03-01",
+        "author": "security-ops",
+        "metadata": {
+            "applies_to": [
+                "FortiGate 200E"
+            ],
+            "related_cis": [
+                "FW-HQ-MAIN"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-device-0003",
+        "kb": "network_device_kb",
+        "title": "Cisco AnyConnect VPN DTLS Tünel Bağlantı Hatası",
+        "content": "Problem: Evden çalışan personel VPN'e bağlandığında sesli görüşmelerde (VoIP) kesinti ve uygulama yavaşlığı yaşıyor. Bağlantı sürekli 'reconnecting' moduna giriyor.\n\nBelirtiler: AnyConnect istatistiklerinde 'Transport Mode: TLS' görülüyor (DTLS yerine). AnyConnect loglarında 'DTLS handshake failed' uyarısı mevcut. Ping süreleri normal ancak jitter çok yüksek.\n\nKök Neden: Fortinet Firewall üzerinde UDP 443 portunun dışarıdan içeriye doğru kapalı olması veya kullanıcının ISP router'ının DTLS trafiğini drop etmesi. TechCorp standartlarında yüksek performans için DTLS zorunludur.\n\nAdım Adım Çözüm:\n1. Firewall üzerinden WAN IP'sine yönelik UDP 443 (DTLS) iznini kontrol edin.\n2. Cisco ASA/Firepower üzerinde 'webvpn' konfigürasyonu altında 'anyconnect ssl dtls enable' komutunun varlığını doğrulayın.\n3. MTU ayarlarını kontrol edin; 'anyconnect mtu 1200' komutu ile tünel MTU değerini optimize edin.\n4. Kullanıcı tarafında 'AnyConnect Profile Editor' üzerinden DTLS'in 'enabled' olduğunu doğrulayın.\n\nÖnleyici Tedbir: VPN profilinde 'Optimal Gateway Selection' aktif edilmeli ve MTU discovery özelliği açık bırakılmalıdır. ISP bazlı kısıtlamalar için kullanıcılara alternatif TCP-only profili sunulmalıdır.",
+        "tags": [
+            "Cisco",
+            "AnyConnect",
+            "VPN",
+            "DTLS"
+        ],
+        "severity": "medium",
+        "last_verified": "2026-01-20",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Cisco ASA 5525-X",
+                "AnyConnect Client 4.10+"
+            ],
+            "related_cis": [
+                "VPN-GW-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-device-0004",
+        "kb": "network_device_kb",
+        "title": "Aruba Switchlerde Loop Tespiti ve Port Blocking",
+        "content": "Problem: Ofis genelinde network broadcast fırtınası yaşanıyor. Tüm switchlerdeki 'Activity' LED'leri senkronize şekilde yanıp sönüyor ve yönetim arayüzlerine erişilemiyor.\n\nBelirtiler: Network genelinde %90'a varan paket kaybı. Wireshark analizinde saniyede on binlerce STP BPDU paketi görülüyor. Bazı switch portları 'Loop Protect' mekanizması tarafından kapatılmış.\n\nKök Neden: Bir son kullanıcının masasının altındaki küçük bir unmanaged switchin iki portunu birbirine bağlaması sonucu oluşan Layer 2 loop.\n\nAdım Adım Çözüm:\n1. Core switch üzerinden 'show spanning-tree' komutu ile 'Root Bridge' durumunu kontrol edin.\n2. 'show spanning-tree inconsistent-ports' komutu ile sorunlu portları bulun.\n3. Aruba switch CLI'da 'show loop-protect' komutunu kullanarak hangi portun loop algıladığını tespit edin.\n4. İlgili portu 'disable' komutu ile fiziksel olarak kapatın.\n5. Kabloyu fiziksel olarak çektikten sonra portu tekrar 'enable' yapın.\n\nÖnleyici Tedbir: Tüm kenar portlarda 'loop-protect' ve 'spanning-tree bpdu-protection' aktif edilmelidir. Kullanıcı tarafındaki unmanaged switch kullanımı kesinlikle yasaklanmalıdır.",
+        "tags": [
+            "Aruba",
+            "STP",
+            "Loop-Protect",
+            "Switching"
+        ],
+        "severity": "critical",
+        "last_verified": "2026-04-12",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Aruba 2930F"
+            ],
+            "related_cis": [
+                "SW-FLOOR2-03"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-device-0005",
+        "kb": "network_device_kb",
+        "title": "Fortinet IPsec VPN Phase 1 Mismatch Hatası",
+        "content": "Problem: TechCorp ile alt yüklenici firma arasındaki Site-to-Site VPN tüneli 'down' durumuna düştü ve trafik geçmiyor.\n\nBelirtiler: FortiGate loglarında 'IPsec phase 1 error', 'no proposal chosen' veya 'peer SA proposal not match' mesajları görülüyor. Tünel statüsü 'negotiating' aşamasında takılıyor.\n\nKök Neden: Karşı tarafın firewall cihazında yapılan bir güncelleme sonrası Phase 1 parametrelerinden (Encryption: AES-256, DH Group: 14) birinin değiştirilmesi.\n\nAdım Adım Çözüm:\n1. CLI üzerinden 'diagnose debug application ike -1' ve 'diagnose debug enable' komutlarını çalıştırın.\n2. Çıkan loglarda 'Remote side is using AES-128, local is AES-256' gibi spesifik hatayı bulun.\n3. VPN -> IPsec Tunnels menüsünden ilgili tüneli seçip 'Edit' deyin.\n4. Phase 1 (IKE) ayarlarını karşı tarafla (Subcontractor) teyit ederek eşitleyin.\n5. 'diagnose vpn tunnel up [tünel-adı]' komutu ile tüneli manuel tetikleyin.\n\nÖnleyici Tedbir: VPN parametreleri her iki tarafta da 'Hardened' standartlarda (DH Group 14+, AES-GCM) sabitlenmeli ve değişiklik yönetimi (Change Management) süreci işletilmelidir.",
+        "tags": [
+            "Fortinet",
+            "VPN",
+            "IPsec",
+            "Phase1"
+        ],
+        "severity": "high",
+        "last_verified": "2026-05-05",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "FortiOS 7.2.x"
+            ],
+            "related_cis": [
+                "FW-HQ-MAIN"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-device-0006",
+        "kb": "network_device_kb",
+        "title": "Aruba Switch SFP Modül Hataları ve CRC Error Artışı",
+        "content": "Problem: Sunucu odasındaki PostgreSQL veritabanı sunucusuna erişimde anlık kopmalar ve yavaş dosya transferleri yaşanıyor.\n\nBelirtiler: Switch portunda saniyede 100+ 'Input Error' ve 'CRC Error' sayacı artıyor. 'show interfaces redundancy' komutu paketlerin bozulduğunu gösteriyor.\n\nKök Neden: Core switch üzerindeki 10G SFP+ modülünün ömrünü tamamlaması veya fiber patch kablodaki aşırı bükülme (bend radius violation).\n\nAdım Adım Çözüm:\n1. CLI'dan 'show int transceivers detail' komutu ile optik güç seviyelerini (Tx/Rx power) kontrol edin.\n2. Rx power -15 dBm altındaysa fiber kabloyu temizleyin veya değiştirin.\n3. Eğer sorun devam ediyorsa 'show tech interface' çıktısındaki 'FCS Errors' kısmına bakın.\n4. SFP modülünü yedek bir Aruba uyumlu modül ile değiştirin.\n5. 'clear statistics global' ile sayaçları sıfırlayın ve 10 dakika gözlemleyin.\n\nÖnleyici Tedbir: Kritik uplink noktalarında 'OM4' standartlarında fiber kablo kullanılmalı ve SFP modülleri için 'Digital Optical Monitoring' (DOM) üzerinden eşik değer alarmı kurulmalıdır.",
+        "tags": [
+            "Aruba",
+            "SFP",
+            "CRC-Error",
+            "Fiber"
+        ],
+        "severity": "medium",
+        "last_verified": "2026-06-10",
+        "author": "hardware-team",
+        "metadata": {
+            "applies_to": [
+                "Aruba 5400R v3"
+            ],
+            "related_cis": [
+                "CORE-SW-01",
+                "DB-SRV-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-device-0007",
+        "kb": "network_device_kb",
+        "title": "Ağda IP Çakışması (Conflict) Tespiti ve Çözümü",
+        "content": "Problem: Finans departmanındaki bir kullanıcının bilgisayarı sürekli internetten düşüyor ve 'Sistemde bir IP adresi çakışması var' uyarısı alıyor.\n\nBelirtiler: 10.0.50.45 IP adresi için ARP tablosunda sürekli değişen MAC adresleri görülüyor. Hem DHCP hem de bir statik cihaz aynı IP'yi talep ediyor.\n\nKök Neden: Yeni alınan bir network yazıcısının, DHCP havuzuna dahil olan 10.0.50.45 adresine manuel (statik) olarak atanması.\n\nAdım Adım Çözüm:\n1. Core switch CLI üzerinde 'show arp | include 10.0.50.45' komutunu çalıştırın.\n2. Çıkan MAC adreslerini 'show mac-address [mac-address]' komutu ile hangi switch portunda olduğunu bulun.\n3. Cihazın bağlı olduğu switch portunu 'shutdown' edin.\n4. Cihazın fiziksel etiketinden veya MAC vendor sorgulamasından hangi cihaz olduğunu (Yazıcı/Server/PC) bulun.\n5. Cihazın arayüzüne girip IP'sini DHCP olarak değiştirin veya DHCP havuzu dışındaki (10.0.50.200+) bir adrese çekin.\n\nÖnleyici Tedbir: Statik IP atamaları mutlaka IPAM (IP Address Management) sistemine işlenmeli ve DHCP havuzları ile statik bloklar kesin bir şekilde ayrılmalıdır.",
+        "tags": [
+            "IP-Conflict",
+            "ARP",
+            "DHCP",
+            "Troubleshooting"
+        ],
+        "severity": "medium",
+        "last_verified": "2026-07-22",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Network Infrastructure"
+            ],
+            "related_cis": [
+                "DHCP-SRV-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-device-0008",
+        "kb": "network_device_kb",
+        "title": "Aruba Switch PoE Bütçesi Aşımı ve Cihaz Kapanmaları",
+        "content": "Problem: Ofiste bulunan bazı VoIP telefonlar ve Wi-Fi Access Pointler aniden kapanıyor veya sürekli yeniden başlıyor.\n\nBelirtiler: Switch loglarında 'PoE denial: Power budget exceeded' mesajları görülüyor. 'show power-over-ethernet' komutu toplam watt kullanımının %95'e ulaştığını gösteriyor.\n\nKök Neden: 48 portlu Aruba switch üzerine çok fazla yüksek güç tüketen (Class 4 - 30W) Access Point bağlanması ve switchin 370W olan toplam PoE kapasitesinin aşılması.\n\nAdım Adım Çözüm:\n1. Switch üzerinde 'show power-over-ethernet brief' komutu ile port bazlı tüketimi görün.\n2. 'int 1-48 power-over-ethernet critical' komutu ile önemli cihazların (Access Point) portlarını önceliklendirin.\n3. Kritik olmayan cihazların (bazı test IP telefonları) PoE özelliğini 'no power-over-ethernet' ile kapatın.\n4. Eğer mümkünse switch üzerindeki güç kaynağını (PSU) daha yüksek wattlı bir modelle değiştirin.\n\nÖnleyici Tedbir: Network tasarım aşamasında her switch için %20 PoE yedek kapasite bırakılmalı. Yüksek yoğunluklu alanlarda 'PoE+' destekli 740W PSU'ya sahip modeller tercih edilmelidir.",
+        "tags": [
+            "Aruba",
+            "PoE",
+            "Power",
+            "VoIP"
+        ],
+        "severity": "medium",
+        "last_verified": "2026-08-14",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Aruba 2930F-48G-PoE+"
+            ],
+            "related_cis": [
+                "SW-FLOOR1-02"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-device-0009",
+        "kb": "network_device_kb",
+        "title": "Fortinet SD-WAN Link Flapping ve Otomatik Geçiş Sorunları",
+        "content": "Problem: TechCorp şube ofisindeki kullanıcılar Teams toplantıları sırasında 30 saniyelik kopmalar yaşıyor. Trafik ana hattan yedek hatta geçerken takılıyor.\n\nBelirtiler: FortiGate SD-WAN Events loglarında 'Link failure detected' ve hemen ardından 'Link restored' mesajları ardı ardına geliyor. Health Check (SLA) paketleri zaman zaman drop oluyor.\n\nKök Neden: SD-WAN Health Check için kullanılan Google DNS (8.8.8.8) adresinin ISP tarafından hız kısıtlamasına (rate-limiting) uğraması ve sistemin linki 'ölü' sanması.\n\nAdım Adım Çözüm:\n1. Network -> SD-WAN -> Performance SLA sekmesine gidin.\n2. Target adresini tek bir IP yerine birden fazla (8.8.4.4, 1.1.1.1) adresle güncelleyin.\n3. 'Check interval' süresini 500ms'den 2000ms'ye çıkarın.\n4. 'Failures before inactive' değerini 5 olarak güncelleyin (Link flapping'i önlemek için).\n5. CLI'dan 'diagnose sys sdwan health-check' ile stabiliteyi doğrulayın.\n\nÖnleyici Tedbir: Health Check için ISP'nin kendi DNS sunucuları veya TechCorp HQ içindeki stabil bir IP adresi (10.0.0.1) kullanılmalıdır.",
+        "tags": [
+            "Fortinet",
+            "SD-WAN",
+            "SLA",
+            "ISP"
+        ],
+        "severity": "high",
+        "last_verified": "2026-09-05",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "FortiGate 80F"
+            ],
+            "related_cis": [
+                "FW-BRANCH-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-network-device-0010",
+        "kb": "network_device_kb",
+        "title": "Cisco AnyConnect ve Okta MFA Kimlik Doğrulama Zaman Aşımı",
+        "content": "Problem: Kullanıcılar VPN'e bağlanırken kullanıcı adı/şifre girdikten sonra Okta push bildirimi gelmeden bağlantı kopuyor.\n\nBelirtiler: AnyConnect ekranında 'Authentication timeout' hatası. Okta loglarında 'User authenticated, push sent' görülüyor ancak VPN tüneli kurulmuyor.\n\nKök Neden: Cisco ASA üzerinde RADIUS timeout süresinin çok kısa (varsayılan 10 saniye) olması. Kullanıcının telefonuna bakıp 'Approve' demesi 10 saniyeden uzun sürdüğü için ASA işlemi iptal ediyor.\n\nAdım Adım Çözüm:\n1. Cisco ASA CLI ekranına bağlanın.\n2. 'aaa-server OKTA-RADIUS protocol radius' altına girin.\n3. 'timer-retransmit 60' komutu ile bekleme süresini 60 saniyeye çıkarın.\n4. 'aaa-server OKTA-RADIUS host [IP]' altında 'timeout 60' değerini de güncelleyin.\n5. Test kullanıcısı ile push bildiriminin gelip gelmediğini ve tünelin kurulduğunu doğrulayın.\n\nÖnleyici Tedbir: MFA sistemlerinde insan faktörü göz önüne alınarak timeout süreleri minimum 45-60 saniye olarak set edilmelidir. Ayrıca yedekli RADIUS sunucuları konfigüre edilmelidir.",
+        "tags": [
+            "Cisco",
+            "Okta",
+            "MFA",
+            "RADIUS"
+        ],
+        "severity": "medium",
+        "last_verified": "2026-10-10",
+        "author": "identity-team",
+        "metadata": {
+            "applies_to": [
+                "Cisco ASA 5500",
+                "Okta Verify"
+            ],
+            "related_cis": [
+                "VPN-GW-01",
+                "OKTA-CONNECTOR"
+            ]
+        }
+    }
+]

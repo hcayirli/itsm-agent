@@ -1,0 +1,241 @@
+[
+    {
+        "id": "kb-generic-0001",
+        "kb": "generic_kb",
+        "title": "Cisco AnyConnect VPN Okta MFA Kimlik Doğrulama Hatası",
+        "content": "Problem: Kullanıcıların Cisco AnyConnect üzerinden VPN bağlantısı kurmaya çalışırken Okta MFA ekranına yönlendirilememesi veya kimlik doğrulama başarısız hatası alması.\n\nBelirtiler: AnyConnect istemcisinde 'Authentication failed' mesajı, Okta Dashboard üzerinde 'Invalid credentials' logları veya MFA push bildiriminin telefona gelmemesi.\n\nKök Neden: techcorp.local domaini ile Okta arasındaki AD Agent senkronizasyon gecikmesi veya AnyConnect profilindeki XML konfigürasyonunda hatalı URL tanımlaması.\n\nAdım Adım Çözüm:\n1. Kullanıcının techcorp.local hesabı üzerinden AD'de kilitli (locked) olup olmadığını kontrol edin.\n2. Okta Admin Panel > Directory > Agents kısmından aktif agent durumlarını doğrulayın.\n3. Kullanıcının mobil cihazındaki Okta Verify uygulamasının saat senkronizasyonunu kontrol edin.\n4. VPN Gateway (10.0.1.1) üzerindeki Radius timeout değerini 30 saniyeden 60 saniyeye yükseltin.\n5. AnyConnect profil dosyasını (~/.anyconnect) temizleyip yeniden bağlanmayı deneyin.\n\nÖnleyici Tedbir: Okta AD Agent sunucularının yüksek erişilebilirlik modunda (HA) çalıştığından emin olun ve periyodik olarak SSL sertifikalarını kontrol edin.",
+        "tags": [
+            "vpn",
+            "okta",
+            "mfa",
+            "cisco"
+        ],
+        "severity": "high",
+        "last_verified": "2025-05-15",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Windows 11",
+                "Cisco AnyConnect"
+            ],
+            "related_cis": [
+                "Fortinet Firewall",
+                "Okta Cloud"
+            ]
+        }
+    },
+    {
+        "id": "kb-generic-0002",
+        "kb": "generic_kb",
+        "title": "FinansPro Oracle 19c Veritabanı Kilitlenme (Deadlock) Sorunu",
+        "content": "Problem: FinansPro Java/Spring uygulaması üzerinde yoğun işlem dönemlerinde veritabanı bağlantılarının askıda kalması ve işlem yapılamaması.\n\nBelirtiler: Uygulama loglarında 'ORA-00060: deadlock detected while waiting for resource' hatası ve CPU kullanımının %95 üzerine çıkması.\n\nKök Neden: Finans DB (Oracle 19c) üzerinde eşzamanlı çalışan batch process'lerin aynı tablo satırlarını farklı sıralarla kilitlemeye çalışması.\n\nAdım Adım Çözüm:\n1. Oracle Enterprise Manager üzerinden kilitli oturumları (sessions) tespit edin.\n2. 'ALTER SYSTEM KILL SESSION' komutu ile bloklayan session'ı sonlandırın.\n3. FinansPro tarafında 'application.properties' dosyasındaki hikari.connection-timeout değerini optimize edin.\n4. İlgili SQL sorgularına 'FOR UPDATE NOWAIT' ekleyerek uygulama tarafında kontrol mekanizması kurun.\n5. Tablo indekslerini (Indexes) analiz ederek 'Full Table Scan' durumlarını engelleyin.\n\nÖnleyici Tedbir: Uygulama katmanında transaction yönetimi için iyileştirilmiş bir locking stratejisi geliştirin ve DB üzerinde otomatik indeks rebuild işlerini planlayın.",
+        "tags": [
+            "oracle",
+            "finanspro",
+            "database",
+            "java"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-06-20",
+        "author": "dba-team",
+        "metadata": {
+            "applies_to": [
+                "Oracle 19c",
+                "FinansPro"
+            ],
+            "related_cis": [
+                "Finans-DB-SRV"
+            ]
+        }
+    },
+    {
+        "id": "kb-generic-0003",
+        "kb": "generic_kb",
+        "title": "HR-Portal React Uygulaması Node.js API Timeout Sorunu",
+        "content": "Problem: Çalışanların HR-Portal üzerinden yıllık izin talebi gönderirken '504 Gateway Timeout' hatası alması.\n\nBelirtiler: Kullanıcı arayüzünde dönen spinner simgesinin takılması, tarayıcı konsolunda 'ERR_CONNECTION_TIMED_OUT' mesajı ve Nginx loglarında upstream timeout hataları.\n\nKök Neden: Node.js backend servisinin techcorp.local AD sunucusuna LDAP sorgusu atarken yaşadığı gecikme sonucu isteğin Nginx timeout limitini (30s) aşması.\n\nAdım Adım Çözüm:\n1. HR-Portal sunucusunda (Ubuntu 22.04) Node.js process'lerini `pm2 list` ile kontrol edin.\n2. Nginx konfigürasyonundaki `proxy_read_timeout` değerini 60s olarak güncelleyin.\n3. Backend kodundaki LDAP query filter yapısını optimize ederek gereksiz OU taramalarını önleyin.\n4. Uygulama tarafındaki memory leak ihtimaline karşı `node --inspect` ile heap dump alın.\n5. API yanıtlarını Redis cache katmanı kullanarak hızlandırın.\n\nÖnleyici Tedbir: AD LDAP sorguları için indexing yapın ve backend servisleri için otomatik ölçeklendirme (auto-scaling) kurallarını devreye alın.",
+        "tags": [
+            "react",
+            "node-js",
+            "nginx",
+            "hr-portal"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-07-02",
+        "author": "devops-team",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04 LTS",
+                "HR-Portal"
+            ],
+            "related_cis": [
+                "App-SRV-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-generic-0004",
+        "kb": "generic_kb",
+        "title": "Ubuntu 22.04 Sunucularda Disk Alanı Doluluğu ve Log Rotasyonu",
+        "content": "Problem: Uygulama sunucularının beklenmedik şekilde durması ve SSH bağlantılarının başarısız olması.\n\nBelirtiler: `df -h` çıktısında /var/log dizininin %100 dolu olması ve 'No space left on device' hataları.\n\nKök Neden: PostgreSQL 15 veritabanı loglarının veya sistem journal loglarının (journald) rotasyon ayarlarının düzgün yapılandırılmaması.\n\nAdım Adım Çözüm:\n1. `ncdu /var/log` komutu ile en çok alan kaplayan dosyaları tespit edin.\n2. `journalctl --vacuum-time=7d` komutu ile eski sistem loglarını temizleyin.\n3. `/etc/logrotate.d/` altındaki PostgreSQL konfigürasyonunu kontrol edin ve 'compress' parametresini aktif edin.\n4. Büyük log dosyalarını boşaltmak için `truncate -s 0 /var/log/syslog` komutunu kullanın (Silmeyin, boyutunu sıfırlayın).\n5. Gereksiz 'debug' seviyesindeki uygulama loglarını 'info' seviyesine çekin.\n\nÖnleyici Tedbir: Zabbix veya Prometheus üzerinden disk doluluk oranı %80 olduğunda alarm üretecek bir monitoring kuralı oluşturun.",
+        "tags": [
+            "ubuntu",
+            "linux",
+            "disk-management",
+            "postgresql"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-08-12",
+        "author": "sysadmin-team",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04 LTS"
+            ],
+            "related_cis": [
+                "All-Linux-Hosts"
+            ]
+        }
+    },
+    {
+        "id": "kb-generic-0005",
+        "kb": "generic_kb",
+        "title": "Windows 11 Cihazlarda Domain Trust İlişkisi Kopması",
+        "content": "Problem: Kullanıcıların Windows 11 bilgisayarlarında 'The trust relationship between this workstation and the primary domain failed' hatası alarak giriş yapamaması.\n\nBelirtiler: Domain kullanıcısı ile oturum açılamaması, sadece local admin erişimine izin verilmesi ve ağ kaynaklarına erişim reddi.\n\nKök Neden: Bilgisayarın techcorp.local domainindeki computer password senkronizasyonunun bozulması veya cihazın 30 günden fazla süreyle ağdan uzak kalması.\n\nAdım Adım Çözüm:\n1. Cihaza yerel yönetici (Local Admin) hesabı ile giriş yapın.\n2. PowerShell'i yönetici olarak çalıştırın ve `Test-ComputerSecureChannel -Verify` komutunu çalıştırın.\n3. Eğer sonuç 'False' dönerse, `Reset-ComputerMachinePassword` komutunu uygulayın.\n4. Alternatif olarak, cihazı domainden çıkarıp (Workgroup'a alıp) yeniden başlatın ve tekrar domain'e dahil edin.\n5. DNS ayarlarının 10.0.0.5 ve 10.0.0.6 (Domain Controllers) adreslerini gösterdiğinden emin olun.\n\nÖnleyici Tedbir: VPN bağlantılarının her 15 günde bir aktif edilmesini zorunlu kılan bir politika uygulayın ve AD üzerinde 'Inactive Computers' raporlarını takip edin.",
+        "tags": [
+            "windows-11",
+            "active-directory",
+            "dns"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-09-05",
+        "author": "helpdesk-l3",
+        "metadata": {
+            "applies_to": [
+                "Windows 11",
+                "techcorp.local"
+            ],
+            "related_cis": [
+                "AD-Domain-Controller"
+            ]
+        }
+    },
+    {
+        "id": "kb-generic-0006",
+        "kb": "generic_kb",
+        "title": "Aruba Switch Portlarında VLAN Mismatch ve Hız Düşüklüğü",
+        "content": "Problem: Ofis içerisindeki belirli departmanların ağ hızında ciddi düşüş yaşaması veya IP adresi alamaması.\n\nBelirtiler: Switch portlarında 'CRC errors' artışı, Aruba dashboard üzerinde port flapping uyarıları ve 10/100 Mbps hızına düşen bağlantılar.\n\nKök Neden: Fiziksel kablolama hataları veya switch portu ile son kullanıcı cihazı arasındaki VLAN tagleme uyuşmazlığı.\n\nAdım Adım Çözüm:\n1. Aruba Central veya CLI üzerinden `show interface brief` komutuyla port durumlarını inceleyin.\n2. Hatalı port için `show interface <port_id> counters` ile hata oranlarını kontrol edin.\n3. Portun 'Untagged' ve 'Tagged' VLAN konfigürasyonunu (Örn: VLAN 10 - Client) doğrulayın.\n4. Port hızını otomatiğe (auto-negotiation) çekin veya sabit 1000Mbps olarak test edin.\n5. Arızalı patch kabloyu Cat6 standartlarında bir kablo ile değiştirin.\n\nÖnleyici Tedbir: Tüm switch portlarında 'Spanning Tree Portfast' özelliğini aktif edin ve kullanılmayan portları 'shutdown' durumuna getirin.",
+        "tags": [
+            "aruba",
+            "switch",
+            "vlan",
+            "network"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-10-10",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Aruba Switches"
+            ],
+            "related_cis": [
+                "Core-Switch-01",
+                "Dist-Switch-02"
+            ]
+        }
+    },
+    {
+        "id": "kb-generic-0007",
+        "kb": "generic_kb",
+        "title": "PostgreSQL 15 Yüksek Bellek Kullanımı ve OOM Killer",
+        "content": "Problem: Uygulama veritabanı (Uygulama DB) sunucusunun aniden kapanması veya yanıt vermemesi.\n\nBelirtiler: `dmesg` loglarında 'Out of memory: Kill process (postgres)' mesajı ve veritabanı bağlantılarının 'Connection reset by peer' ile sonlanması.\n\nKök Neden: `shared_buffers` ve `work_mem` parametrelerinin fiziksel RAM kapasitesine (32GB) göre çok yüksek yapılandırılması.\n\nAdım Adım Çözüm:\n1. `/etc/postgresql/15/main/postgresql.conf` dosyasını açın.\n2. `shared_buffers` değerini toplam RAM'in %25'i olacak şekilde (Örn: 8GB) ayarlayın.\n3. `work_mem` değerini bağlantı başına 16MB gibi makul bir seviyeye indirin.\n4. `max_connections` parametresini uygulama ihtiyaçlarına göre optimize edin (Örn: 500).\n5. Sunucuyu `systemctl restart postgresql` ile yeniden başlatın.\n\nÖnleyici Tedbir: `pg_stat_activity` görünümünü izleyerek uzun süren sorguları optimize edin ve swap alanını (swap file) kontrol edin.",
+        "tags": [
+            "postgresql",
+            "database",
+            "linux",
+            "performance"
+        ],
+        "severity": "high",
+        "last_verified": "2025-11-20",
+        "author": "dba-team",
+        "metadata": {
+            "applies_to": [
+                "PostgreSQL 15",
+                "Ubuntu 22.04"
+            ],
+            "related_cis": [
+                "App-DB-SRV"
+            ]
+        }
+    },
+    {
+        "id": "kb-generic-0008",
+        "kb": "generic_kb",
+        "title": "Fortinet Firewall Üzerinde SSL Inspection Sertifika Hatası",
+        "content": "Problem: Kullanıcıların güvenli web sitelerine (HTTPS) erişirken tarayıcılarında 'Sertifika Güvenli Değil' uyarısı alması.\n\nBelirtiler: Google Chrome'da 'NET::ERR_CERT_AUTHORITY_INVALID' hatası ve bazı kurumsal uygulamaların API çağrılarının başarısız olması.\n\nKök Neden: Fortinet Firewall üzerinde aktif olan 'Deep SSL Inspection' politikasının kullandığı CA sertifikasının kullanıcı cihazlarında yüklü olmaması.\n\nAdım Adım Çözüm:\n1. FortiGate arayüzünden 'Fortinet_CA_SSL' sertifikasını dışa aktarın (export).\n2. Bu sertifikayı Microsoft AD Group Policy (GPO) üzerinden tüm Windows 11 cihazların 'Trusted Root Certification Authorities' deposuna dağıtın.\n3. Manuel test için cihazda `certlm.msc` üzerinden sertifikayı içe aktarın.\n4. Firewall üzerinde 'Exempt' listesine güvenilir finans sitelerini ekleyerek inspection dışı bırakın.\n5. Tarayıcıyı yeniden başlatarak sertifika zincirini kontrol edin.\n\nÖnleyici Tedbir: SSL Inspection istisna listesini (Exemptions) düzenli olarak güncelleyin ve sertifika geçerlilik tarihlerini izleyin.",
+        "tags": [
+            "fortinet",
+            "firewall",
+            "ssl",
+            "security"
+        ],
+        "severity": "high",
+        "last_verified": "2025-12-01",
+        "author": "security-team",
+        "metadata": {
+            "applies_to": [
+                "FortiGate 200F",
+                "Windows 11"
+            ],
+            "related_cis": [
+                "Edge-Firewall"
+            ]
+        }
+    },
+    {
+        "id": "kb-generic-0009",
+        "kb": "generic_kb",
+        "title": "FinansPro Java Heap Space Bellek Sızıntısı (Memory Leak)",
+        "content": "Problem: FinansPro uygulamasının belirli bir çalışma süresinden sonra yavaşlaması ve sonunda 'java.lang.OutOfMemoryError: Java heap space' hatasıyla çökmesi.\n\nBelirtiler: JVM metriklerinde 'Old Gen' bellek alanının sürekli artması ve Garbage Collection (GC) işlemlerinin CPU'yu domine etmesi.\n\nKök Neden: Uygulama içindeki statik koleksiyonların (HashMap vb.) temizlenmemesi sonucu oluşan nesne birikimi.\n\nAdım Adım Çözüm:\n1. Uygulama başlatma parametrelerine `-XX:+HeapDumpOnOutOfMemoryError` ekleyin.\n2. Oluşan `.hprof` dosyasını Eclipse Memory Analyzer (MAT) ile inceleyerek sızıntıya neden olan sınıfı bulun.\n3. Spring Boot tarafında `@Scheduled` işlerinin thread pool yönetimini kontrol edin.\n4. JVM başlangıç belleğini `-Xms4g -Xmx8g` olarak revize edin.\n5. Uygulama versiyonunu Java/Spring güncel kütüphaneleri ile build edip deploy edin.\n\nÖnleyici Tedbir: CI/CD süreçlerine kod analiz araçlarını (SonarQube) dahil ederek bellek sızıntısı risklerini kod aşamasında tespit edin.",
+        "tags": [
+            "java",
+            "spring",
+            "jvm",
+            "finanspro"
+        ],
+        "severity": "high",
+        "last_verified": "2026-01-15",
+        "author": "app-support",
+        "metadata": {
+            "applies_to": [
+                "Java 17",
+                "FinansPro"
+            ],
+            "related_cis": [
+                "Finans-App-SRV"
+            ]
+        }
+    },
+    {
+        "id": "kb-generic-0010",
+        "kb": "generic_kb",
+        "title": "Okta MFA Kayıtlı Cihaz Değişimi ve Aktivasyon Sorunları",
+        "content": "Problem: Mobil cihazını değiştiren çalışanların HR-Portal veya VPN girişi için MFA doğrulaması yapamaması.\n\nBelirtiler: Okta ekranında 'Push sent' denmesine rağmen yeni cihaza bildirim düşmemesi ve eski cihazın hala sistemde aktif görünmesi.\n\nKök Neden: Kullanıcının Okta profilinde eski cihaz token'ının temizlenmemiş olması ve yeni cihazın 'Factor' olarak eklenmemesi.\n\nAdım Adım Çözüm:\n1. Okta Admin Dashboard üzerinden kullanıcının profilini bulun.\n2. 'More Actions' > 'Reset Multifactor' seçeneği ile mevcut MFA kayıtlarını temizleyin.\n3. Kullanıcıya HR-Portal üzerinden bir aktivasyon linki veya QR kodu gönderin.\n4. Kullanıcının yeni cihazında Okta Verify uygulamasını kurduğundan ve bildirimlere izin verdiğinden emin olun.\n5. Kullanıcının sistem saatini 'Otomatik' olarak ayarlamasını sağlayın.\n\nÖnleyici Tedbir: Personel işten ayrılma veya cihaz değişim süreçlerinde Self-Service Okta portalı kullanımına dair eğitim materyalleri paylaşın.",
+        "tags": [
+            "okta",
+            "mfa",
+            "identity",
+            "helpdesk"
+        ],
+        "severity": "low",
+        "last_verified": "2026-02-10",
+        "author": "iam-team",
+        "metadata": {
+            "applies_to": [
+                "Okta Verify",
+                "iOS/Android"
+            ],
+            "related_cis": [
+                "Okta-Identity-Cloud"
+            ]
+        }
+    }
+]

@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RCA Agent Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin 1s linear infinite; display: inline-block; }
+    .prose h1 { font-size: 1.15rem; font-weight: 700; margin: 0.75rem 0 0.5rem; }
+    .prose h2 { font-size: 1.05rem; font-weight: 600; margin: 0.75rem 0 0.4rem; }
+    .prose h3 { font-size: 0.95rem; font-weight: 600; margin: 0.75rem 0 0.4rem; color: #374151; }
+    .prose ul  { list-style: disc;    padding-left: 1.4rem; margin: 0.4rem 0; }
+    .prose ol  { list-style: decimal; padding-left: 1.4rem; margin: 0.4rem 0; }
+    .prose li  { margin: 0.2rem 0; line-height: 1.6; }
+    .prose p   { margin: 0.4rem 0; line-height: 1.6; }
+    .prose strong { font-weight: 600; }
+    details summary::-webkit-details-marker { display: none; }
+    details summary::before { content: '▶ '; font-size: 0.7rem; color: #9ca3af; }
+    details[open] summary::before { content: '▼ '; }
+    .cfg-tab { color: #6b7280; border-bottom: 2px solid transparent; transition: all 0.15s; }
+    .cfg-tab:hover { color: #1d4ed8; }
+    .cfg-tab.active-tab { color: #1d4ed8; border-bottom-color: #1d4ed8; background: #eff6ff; border-radius: 6px 6px 0 0; }
+  </style>
+</head>
+<body class="bg-slate-100 h-screen flex flex-col overflow-hidden text-sm">
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header class="bg-slate-900 text-white px-5 py-3 flex items-center justify-between shrink-0 shadow-lg z-10">
+    <div class="flex items-center gap-3">
+      <div>
+        <h1 class="font-bold text-base leading-tight">ITSM RCA Agent</h1>
+        <p class="text-slate-400 text-xs">Hüseyin Çayırlı - Root Cause Analysis Dashboard</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="provider-badge" class="text-xs bg-slate-700 px-3 py-1 rounded-full text-slate-300"></span>
+      <button onclick="togglePrompts()"
+              class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition flex items-center gap-1">
+        🧠 Promptlar
+      </button>
+      <button onclick="toggleConfig()"
+              class="text-xs bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition flex items-center gap-1">
+        ⚙️ Ayarlar
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Prompts Panel ─────────────────────────────────────── -->
+  <div id="prompts-panel" class="hidden bg-white border-b shadow-sm px-6 py-4 shrink-0 z-10">
+    <div class="max-w-5xl">
+      <div class="flex justify-between items-center mb-3">
+        <div class="flex items-center gap-3">
+          <h2 class="font-bold text-gray-700 text-sm">🧠 Prompt Düzenleyici</h2>
+          <span class="text-xs text-gray-400">Değişkenler: <code class="bg-gray-100 px-1 rounded">{summary}</code> <code class="bg-gray-100 px-1 rounded">{description}</code> <code class="bg-gray-100 px-1 rounded">{kb_context}</code> <code class="bg-gray-100 px-1 rounded">{similar_context}</code></span>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="resetPrompts()"
+                  class="text-xs text-red-500 hover:text-red-700 px-3 py-1.5 border border-red-200 rounded-lg transition">
+            ↺ Varsayılana Dön
+          </button>
+          <button onclick="savePrompts()"
+                  class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg transition font-medium">
+            💾 Kaydet
+          </button>
+          <button onclick="togglePrompts()"
+                  class="text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded-lg transition">✕</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">System Prompt</label>
+            <span id="sys-badge" class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">varsayılan</span>
+          </div>
+          <textarea id="prompt-system" spellcheck="false"
+                    class="w-full h-64 border border-gray-300 rounded-lg p-3 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"></textarea>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">User Template</label>
+            <span id="usr-badge" class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">varsayılan</span>
+          </div>
+          <textarea id="prompt-user-template" spellcheck="false"
+                    class="w-full h-64 border border-gray-300 rounded-lg p-3 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Config Panel ───────────────────────────────────────── -->
+  <div id="config-panel" class="hidden bg-white border-b shadow-sm px-6 py-4 shrink-0 z-10">
+    <div class="max-w-3xl">
+      <!-- Tabs -->
+      <div class="flex gap-1 mb-4 border-b border-gray-200">
+        <button id="tab-llm"  onclick="switchTab('llm')"  class="cfg-tab active-tab px-4 py-2 text-xs font-semibold">⚙️ LLM</button>
+        <button id="tab-jira" onclick="switchTab('jira')" class="cfg-tab px-4 py-2 text-xs font-semibold">🎫 Jira</button>
+        <button id="tab-rag"  onclick="switchTab('rag')"  class="cfg-tab px-4 py-2 text-xs font-semibold">🔍 RAG</button>
+      </div>
+
+      <!-- LLM Tab -->
+      <div id="tab-content-llm" class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">LLM Provider</label>
+          <select id="cfg-provider" onchange="updateProviderFields()"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+            <option value="openrouter">☁️ OpenRouter</option>
+            <option value="ollama">🦙 Ollama (Local)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">LLM Timeout (sn)</label>
+          <input id="cfg-llm-timeout" type="number" min="30" max="600"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                 placeholder="120">
+        </div>
+        <div id="field-openrouter-model">
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">OpenRouter Model</label>
+          <input id="cfg-openrouter-model" type="text"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                 placeholder="openai/gpt-oss-120b:free">
+        </div>
+        <div id="field-openrouter-key">
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">OpenRouter API Key</label>
+          <input id="cfg-openrouter-key" type="password"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                 placeholder="sk-or-v1-…">
+        </div>
+        <div id="field-ollama-model" class="hidden">
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Ollama Model</label>
+          <input id="cfg-ollama-model" type="text"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                 placeholder="llama3.2:3b">
+        </div>
+        <div id="field-ollama-url" class="hidden">
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Ollama Base URL</label>
+          <input id="cfg-ollama-url" type="text"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                 placeholder="http://ollama:11434">
+        </div>
+      </div>
+
+      <!-- Jira Tab -->
+      <div id="tab-content-jira" class="hidden grid grid-cols-2 gap-4">
+        <div class="col-span-2">
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Jira Base URL</label>
+          <input id="cfg-jira-url" type="text"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                 placeholder="https://your-domain.atlassian.net">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Jira E-posta</label>
+          <input id="cfg-jira-email" type="email"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                 placeholder="user@example.com">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Jira API Token</label>
+          <input id="cfg-jira-token" type="password"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                 placeholder="ATATT3x…">
+        </div>
+      </div>
+
+      <!-- RAG Tab -->
+      <div id="tab-content-rag" class="hidden grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">RAG Top K</label>
+          <input id="cfg-rag-top-k" type="number" min="1" max="20"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                 placeholder="5">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">Benzerlik Eşiği (0–1)</label>
+          <input id="cfg-similarity-threshold" type="number" min="0" max="1" step="0.05"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono"
+                 placeholder="0.80">
+          <p class="text-xs text-gray-400 mt-1">0.80 = %80+ benzer ticketları getir</p>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-gray-100">
+        <button onclick="toggleConfig()"
+                class="text-sm text-gray-500 hover:text-gray-700 px-4 py-2 rounded-lg transition">
+          İptal
+        </button>
+        <button onclick="saveConfig()"
+                class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg transition font-medium">
+          💾 Kaydet
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- ── Main Layout ────────────────────────────────────────── -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- Left Panel: Job List -->
+    <div class="w-72 bg-white border-r flex flex-col shrink-0 shadow-sm">
+
+      <!-- Action Bar -->
+      <div class="p-3 border-b bg-gray-50 space-y-2">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 mb-1">Project Key</label>
+          <input id="project-key" type="text" placeholder="ör: HUS  (boş = tümü)"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+        </div>
+        <div class="flex gap-2">
+          <button id="fetch-btn" onclick="fetchAndProcess()"
+                  class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs py-2 rounded-lg transition font-semibold">
+            🔄 Fetch &amp; Process All
+          </button>
+          <button onclick="clearJobs()" title="Listeyi temizle"
+                  class="bg-gray-200 hover:bg-red-100 hover:text-red-600 text-gray-600 text-xs px-2.5 py-2 rounded-lg transition">
+            🗑️
+          </button>
+        </div>
+        <div>
+          <div class="flex gap-1">
+            <input id="single-key" type="text" placeholder="Tekil ticket: HUS-1"
+                   class="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-xs font-mono"
+                   onkeydown="if(event.key==='Enter') triggerSingle()">
+            <button onclick="triggerSingle()"
+                    class="bg-slate-600 hover:bg-slate-700 text-white text-xs px-3 py-1.5 rounded-lg transition">
+              ▶
+            </button>
+          </div>
+        </div>
+        <div id="fetch-status" class="text-xs text-gray-500 hidden"></div>
+
+        <!-- PDF Upload -->
+        <div class="border-t border-gray-200 pt-2">
+          <label class="block text-xs font-semibold text-gray-500 mb-1">KB'ye PDF Ekle</label>
+          <div class="flex gap-2">
+            <label class="flex-1 flex items-center gap-1.5 cursor-pointer bg-white border border-dashed border-gray-300
+                          hover:border-blue-400 hover:bg-blue-50 rounded-lg px-2 py-1.5 transition text-xs text-gray-500 truncate"
+                   title="PDF seç">
+              <span id="pdf-label">📄 PDF seç…</span>
+              <input id="pdf-file" type="file" accept=".pdf" class="hidden" onchange="onPdfSelected()">
+            </label>
+            <button id="pdf-btn" onclick="uploadPdf()" disabled
+                    class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed
+                           text-white text-xs px-3 py-1.5 rounded-lg transition font-semibold">
+              Yükle
+            </button>
+          </div>
+          <div id="pdf-status" class="text-xs text-gray-500 hidden mt-1"></div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div id="stats-bar" class="hidden px-3 py-2 border-b bg-slate-50 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+        <span id="stat-total"      class="text-slate-500 font-medium">0 ticket</span>
+        <span id="stat-done"       class="text-green-600 font-medium">✓ 0</span>
+        <span id="stat-processing" class="text-amber-600 font-medium">⟳ 0</span>
+        <span id="stat-failed"     class="text-red-500  font-medium">✗ 0</span>
+      </div>
+
+      <!-- Job List -->
+      <div id="job-list" class="flex-1 overflow-y-auto">
+        <div id="empty-state" class="text-center text-gray-400 py-16 px-4">
+          <div class="text-4xl mb-3">📋</div>
+          <p class="font-medium">Ticket yok</p>
+          <p class="text-xs mt-1 text-gray-300">Fetch &amp; Process ile başlat</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Panel: Job Detail -->
+    <div id="job-detail" class="flex-1 overflow-y-auto p-6">
+      <div class="text-center text-gray-300 py-24 select-none">
+        <div class="text-6xl mb-4">🤖</div>
+        <p class="text-xl font-semibold text-gray-400">Bir ticket seçin</p>
+        <p class="text-sm mt-2 text-gray-300">Sol panelden ticket'a tıklayın</p>
+      </div>
+    </div>
+
+  </div><!-- /Main -->
+
+  <script>
+    // ─── State ────────────────────────────────────────────────
+    let selectedKey       = null;
+    let selectedKeyStatus = null;
+    let pollTimer         = null;
+    let lastJobs          = [];
+    let detailCache       = {};
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadConfig();
+      loadJobs();
+      pollTimer = setInterval(loadJobs, 3000);
+    });
+
+    // ─── Config ───────────────────────────────────────────────
+    function toggleConfig() {
+      document.getElementById('config-panel').classList.toggle('hidden');
+      document.getElementById('prompts-panel').classList.add('hidden');
+    }
+
+    function togglePrompts() {
+      const panel = document.getElementById('prompts-panel');
+      const wasHidden = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden');
+      document.getElementById('config-panel').classList.add('hidden');
+      if (wasHidden) loadPrompts();
+    }
+
+    async function loadPrompts() {
+      try {
+        const data = await (await fetch('/api/prompts')).json();
+        document.getElementById('prompt-system').value       = data.system_prompt;
+        document.getElementById('prompt-user-template').value = data.user_template;
+        const sysBadge = document.getElementById('sys-badge');
+        const usrBadge = document.getElementById('usr-badge');
+        sysBadge.textContent  = data.system_is_custom  ? 'özel' : 'varsayılan';
+        sysBadge.className    = `text-xs px-2 py-0.5 rounded-full ${data.system_is_custom  ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`;
+        usrBadge.textContent  = data.user_is_custom    ? 'özel' : 'varsayılan';
+        usrBadge.className    = `text-xs px-2 py-0.5 rounded-full ${data.user_is_custom    ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`;
+      } catch(e) { console.error('Promptlar yüklenemedi:', e); }
+    }
+
+    async function savePrompts() {
+      const body = {
+        system_prompt: document.getElementById('prompt-system').value,
+        user_template: document.getElementById('prompt-user-template').value,
+      };
+      await fetch('/api/prompts', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+      await loadPrompts();
+      document.getElementById('prompts-panel').classList.add('hidden');
+    }
+
+    async function resetPrompts() {
+      if (!confirm('Promptlar varsayılana döndürülsün mü?')) return;
+      await fetch('/api/prompts/reset', { method:'POST' });
+      await loadPrompts();
+    }
+
+    function switchTab(name) {
+      ['llm', 'jira', 'rag'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('active-tab', t === name);
+        document.getElementById(`tab-content-${t}`).classList.toggle('hidden', t !== name);
+      });
+    }
+
+    function updateProviderFields() {
+      const p  = document.getElementById('cfg-provider').value;
+      const orFields = ['field-openrouter-model', 'field-openrouter-key'];
+      const olFields = ['field-ollama-model', 'field-ollama-url'];
+      if (p === 'ollama') {
+        orFields.forEach(id => document.getElementById(id).classList.add('hidden'));
+        olFields.forEach(id => document.getElementById(id).classList.remove('hidden'));
+      } else {
+        orFields.forEach(id => document.getElementById(id).classList.remove('hidden'));
+        olFields.forEach(id => document.getElementById(id).classList.add('hidden'));
+      }
+    }
+
+    async function loadConfig() {
+      try {
+        const cfg = await (await fetch('/api/config')).json();
+        document.getElementById('cfg-provider').value                 = cfg.provider;
+        document.getElementById('cfg-openrouter-model').value         = cfg.openrouter_model;
+        document.getElementById('cfg-openrouter-key').value           = cfg.openrouter_api_key || '';
+        document.getElementById('cfg-ollama-model').value             = cfg.ollama_model;
+        document.getElementById('cfg-ollama-url').value               = cfg.ollama_base_url || '';
+        document.getElementById('cfg-llm-timeout').value              = cfg.llm_timeout || 120;
+        document.getElementById('cfg-jira-url').value                 = cfg.jira_base_url || '';
+        document.getElementById('cfg-jira-email').value               = cfg.jira_user_email || '';
+        document.getElementById('cfg-jira-token').value               = cfg.jira_api_token || '';
+        document.getElementById('cfg-rag-top-k').value                = cfg.rag_top_k || 5;
+        document.getElementById('cfg-similarity-threshold').value     = cfg.ticket_similarity_threshold || 0.80;
+        updateProviderFields();
+        const badge = document.getElementById('provider-badge');
+        badge.textContent = cfg.provider === 'ollama'
+          ? `🦙 Ollama · ${cfg.ollama_model}`
+          : `☁️ OpenRouter · ${cfg.openrouter_model}`;
+      } catch(e) { console.error('Config y\xfcklenemedi:', e); }
+    }
+
+    async function saveConfig() {
+      const body = {
+        provider:                    document.getElementById('cfg-provider').value,
+        openrouter_model:            document.getElementById('cfg-openrouter-model').value,
+        openrouter_api_key:          document.getElementById('cfg-openrouter-key').value,
+        ollama_model:                document.getElementById('cfg-ollama-model').value,
+        ollama_base_url:             document.getElementById('cfg-ollama-url').value,
+        llm_timeout:                 parseInt(document.getElementById('cfg-llm-timeout').value) || 120,
+        jira_base_url:               document.getElementById('cfg-jira-url').value,
+        jira_user_email:             document.getElementById('cfg-jira-email').value,
+        jira_api_token:              document.getElementById('cfg-jira-token').value,
+        rag_top_k:                   parseInt(document.getElementById('cfg-rag-top-k').value) || 5,
+        ticket_similarity_threshold: parseFloat(document.getElementById('cfg-similarity-threshold').value) || 0.80,
+      };
+      await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+      await loadConfig();
+      document.getElementById('config-panel').classList.add('hidden');
+    }
+
+    // ─── Jobs List ────────────────────────────────────────────
+    async function loadJobs() {
+      try {
+        lastJobs = await (await fetch('/api/jobs')).json();
+        renderJobList(lastJobs);
+        updateStats(lastJobs);
+        if (selectedKey) {
+          const sel = lastJobs.find(j => j.key === selectedKey);
+          if (sel) {
+            const wasActive = selectedKeyStatus === 'processing' || selectedKeyStatus === 'pending';
+            const nowDone   = sel.status === 'done' || sel.status === 'failed';
+            if (sel.status === 'processing' || sel.status === 'pending' || (wasActive && nowDone)) {
+              refreshDetail(selectedKey);
+            }
+            selectedKeyStatus = sel.status;
+          }
+        }
+      } catch(e) { console.error('Jobs yüklenemedi:', e); }
+    }
+
+    function updateStats(jobs) {
+      const bar = document.getElementById('stats-bar');
+      if (!jobs.length) { bar.classList.add('hidden'); return; }
+      bar.classList.remove('hidden');
+      document.getElementById('stat-total').textContent      = `${jobs.length} ticket`;
+      document.getElementById('stat-done').textContent       = `✓ ${jobs.filter(j=>j.status==='done').length}`;
+      document.getElementById('stat-processing').textContent = `⟳ ${jobs.filter(j=>j.status==='processing'||j.status==='pending').length}`;
+      document.getElementById('stat-failed').textContent     = `✗ ${jobs.filter(j=>j.status==='failed').length}`;
+    }
+
+    function renderJobList(jobs) {
+      const el = document.getElementById('job-list');
+      if (!jobs.length) {
+        el.innerHTML = `<div class="text-center text-gray-400 py-16 px-4">
+          <div class="text-4xl mb-3">📋</div>
+          <p class="font-medium">Ticket yok</p>
+          <p class="text-xs mt-1 text-gray-300">Fetch &amp; Process ile başlat</p>
+        </div>`;
+        return;
+      }
+      el.innerHTML = jobs.map(j => {
+        const active = selectedKey === j.key;
+        const dbTag  = j.saved_to_db
+          ? `<span class="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-mono" title="MongoDB'ye kaydedildi">db</span>`
+          : '';
+        const priTag = j.priority ? `<span class="text-xs ${priorityClass(j.priority)} px-1.5 py-0.5 rounded">${esc(j.priority)}</span>` : '';
+        return `<div onclick="selectJob('${esc(j.key)}')"
+             class="group px-3 py-2.5 border-b cursor-pointer hover:bg-slate-50 transition
+                    border-l-4 ${active ? 'bg-blue-50 border-l-blue-500' : 'border-l-transparent'}">
+          <div class="flex items-center justify-between gap-2 mb-0.5">
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="font-mono font-bold text-slate-700 text-xs shrink-0">${esc(j.key)}</span>
+              ${dbTag}${priTag}
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              ${badge(j.status)}
+              <button onclick="deleteJob(event,'${esc(j.key)}')"
+                      title="Sil"
+                      class="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-500 transition text-xs leading-none px-1">✕</button>
+            </div>
+          </div>
+          <div class="text-xs text-gray-500 truncate">${esc(j.summary)}</div>
+          <div class="text-xs text-gray-300 mt-0.5">${relTime(j.updated_at)}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function badge(s) {
+      const m = {
+        pending:    ['bg-gray-100 text-gray-500',   '⏳ bekliyor'],
+        processing: ['bg-amber-100 text-amber-700', '<span class="spin">⟳</span> işleniyor'],
+        done:       ['bg-green-100 text-green-700', '✓ tamamlandı'],
+        failed:     ['bg-red-100 text-red-600',     '✗ hata'],
+      };
+      const [cls, lbl] = m[s] || m.pending;
+      return `<span class="text-xs px-2 py-0.5 rounded-full ${cls} whitespace-nowrap">${lbl}</span>`;
+    }
+
+    function priorityClass(p) {
+      const lp = (p || '').toLowerCase();
+      if (lp === 'highest' || lp === 'critical') return 'bg-red-100 text-red-700';
+      if (lp === 'high')   return 'bg-orange-100 text-orange-700';
+      if (lp === 'medium') return 'bg-yellow-100 text-yellow-700';
+      if (lp === 'low')    return 'bg-blue-100 text-blue-700';
+      return 'bg-gray-100 text-gray-500';
+    }
+
+    function selectJob(key) {
+      selectedKey = key;
+      selectedKeyStatus = null;
+      renderJobList(lastJobs);
+      if (detailCache[key]) {
+        renderDetail(detailCache[key]);
+      } else {
+        document.getElementById('job-detail').innerHTML = `
+          <div class="flex items-center justify-center" style="height:60%">
+            <div class="text-center text-gray-400">
+              <div class="text-3xl spin mb-3">⟳</div>
+              <p class="text-sm">Yükleniyor…</p>
+            </div>
+          </div>`;
+      }
+      refreshDetail(key);
+    }
+
+    async function refreshDetail(key) {
+      try {
+        const res = await fetch(`/api/jobs/${key}`);
+        if (!res.ok) {
+          if (selectedKey === key) {
+            document.getElementById('job-detail').innerHTML = `
+              <div class="flex items-center justify-center" style="height:60%">
+                <div class="text-center text-gray-400">
+                  <p class="text-sm font-medium">Ticket bulunamadı</p>
+                  <p class="text-xs mt-1 font-mono text-gray-300">${key}</p>
+                </div>
+              </div>`;
+          }
+          return;
+        }
+        const job = await res.json();
+        if (job.status === 'done' || job.status === 'failed') {
+          detailCache[key] = job;
+        }
+        if (selectedKey === key) renderDetail(job);
+      } catch(e) { console.error('Detail yüklenemedi:', e); }
+    }
+
+    // ─── Job Detail ───────────────────────────────────────────
+    function renderDetail(job) {
+      const container = document.getElementById('job-detail');
+
+      // KB Matches
+      let kbHtml = '<p class="text-gray-400 italic text-xs">KB eşleşmesi bulunamadı.</p>';
+      if (job.kb_matches && job.kb_matches.length) {
+        kbHtml = job.kb_matches.map((m, i) => {
+          const title = m.metadata?.title || m.metadata?.baslik || `Kayıt ${i+1}`;
+          const dist  = typeof m.distance === 'number' ? m.distance.toFixed(4) : '—';
+          const doc   = m.document || '';
+          return `<div class="border border-gray-200 rounded-lg p-3 mb-2 bg-gray-50">
+            <div class="flex justify-between items-start mb-1.5 gap-2">
+              <span class="font-semibold text-slate-700 text-xs">[${i+1}] ${esc(title)}</span>
+              <div class="flex gap-1.5 shrink-0 text-xs">
+                <span class="bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-mono">${esc(m.collection)}</span>
+                <span class="bg-gray-200 text-gray-500 px-2 py-0.5 rounded font-mono">📏 ${dist}</span>
+              </div>
+            </div>
+            <p class="text-gray-600 text-xs leading-relaxed">${esc(doc.slice(0, 350))}${doc.length > 350 ? '…' : ''}</p>
+          </div>`;
+        }).join('');
+      }
+
+      // Similar Tickets
+      let similarHtml = '<p class="text-gray-400 italic text-xs">Benzer geçmiş ticket bulunamadı.</p>';
+      if (job.similar_tickets && job.similar_tickets.length) {
+        similarHtml = job.similar_tickets.map(t => {
+          const pct = typeof t.similarity_pct === 'number' ? t.similarity_pct : Math.round((1 - t.distance) * 100);
+          const barColor = pct >= 80 ? 'bg-purple-500' : pct >= 65 ? 'bg-indigo-400' : 'bg-slate-400';
+          return `<div class="border border-purple-200 rounded-lg p-3 mb-2 bg-purple-50 cursor-pointer hover:bg-purple-100 transition"
+                       onclick="selectJob('${esc(t.key)}')">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="font-mono font-bold text-slate-700 text-xs">${esc(t.key)}</span>
+              <div class="flex items-center gap-1.5">
+                <div class="w-16 h-1.5 bg-purple-200 rounded-full overflow-hidden">
+                  <div class="${barColor} h-full rounded-full" style="width:${pct}%"></div>
+                </div>
+                <span class="text-xs bg-purple-200 text-purple-800 px-2 py-0.5 rounded font-mono font-semibold">%${pct}</span>
+              </div>
+            </div>
+            <p class="text-xs text-gray-600 truncate">${esc(t.summary)}</p>
+          </div>`;
+        }).join('');
+      }
+
+      // System Prompt (collapsible)
+      const sysHtml = job.system_prompt
+        ? `<details class="mb-3">
+            <summary class="cursor-pointer text-xs font-semibold text-gray-600 py-1 select-none hover:text-blue-600">System Prompt</summary>
+            <pre class="mt-2 bg-slate-900 text-emerald-300 p-3 rounded-lg text-xs overflow-x-auto whitespace-pre-wrap">${esc(job.system_prompt)}</pre>
+          </details>`
+        : '';
+
+      // User Prompt (collapsible)
+      const usrHtml = job.user_prompt
+        ? `<details class="mb-3">
+            <summary class="cursor-pointer text-xs font-semibold text-gray-600 py-1 select-none hover:text-blue-600">User Prompt</summary>
+            <pre class="mt-2 bg-gray-50 border border-gray-200 p-3 rounded-lg text-xs overflow-x-auto whitespace-pre-wrap">${esc(job.user_prompt)}</pre>
+          </details>`
+        : '';
+
+      // Agent pipeline adım eşleme
+      const PIPELINE_STEPS = [
+        { label: 'Hazırlık',     keys: ['retrieve','upsert_embedding','build_prompt'] },
+        { label: 'Investigator', keys: ['investigate'] },
+        { label: 'Drafter',      keys: ['draft'] },
+        { label: 'Reviewer',     keys: ['review','post_comment'] },
+      ];
+      const STEP_DESC = {
+        retrieve:         'KB ve benzer ticketlar aranıyor…',
+        upsert_embedding: 'Ticket vektörü kaydediliyor…',
+        build_prompt:     'Prompt hazırlanıyor…',
+        investigate:      'Investigator veriyi analiz ediyor…',
+        review:           'Reviewer taslağı kalite kontrol ediyor…',
+        post_comment:     "Jira'ya yorum ekleniyor…",
+      };
+
+      // LLM Output
+      let outputHtml = '<p class="text-gray-400 italic text-xs">Henüz çıktı yok.</p>';
+      if (job.status === 'processing' || job.status === 'pending') {
+        const step = job.agent_step || '';
+        const revCount = job.revision_count || 0;
+        const stepDesc = step === 'draft'
+          ? (revCount > 0 ? `Drafter revize ediyor (${revCount}. iterasyon)…` : 'Drafter RCA taslağını oluşturuyor…')
+          : (STEP_DESC[step] || 'İşleniyor…');
+
+        // Stepper
+        let activeIdx = 0;
+        for (let i = 0; i < PIPELINE_STEPS.length; i++) {
+          if (PIPELINE_STEPS[i].keys.includes(step)) { activeIdx = i; break; }
+        }
+        const stepperHtml = PIPELINE_STEPS.map((s, i) => {
+          const done   = i < activeIdx;
+          const active = i === activeIdx;
+          const icon   = done ? '✓' : active ? '<span class="spin">⟳</span>' : '○';
+          const cls    = done   ? 'text-green-600 font-semibold'
+                       : active ? 'text-amber-600 font-semibold'
+                       :          'text-gray-300';
+          const sep    = i < PIPELINE_STEPS.length - 1
+            ? `<span class="text-gray-300 mx-1 text-xs" style="margin-top:-.1rem">→</span>` : '';
+          return `<div class="flex items-center"><div class="flex flex-col items-center gap-0.5"><span class="text-sm leading-none ${cls}">${icon}</span><span class="text-xs ${cls} whitespace-nowrap">${s.label}</span></div>${sep}</div>`;
+        }).join('');
+
+        // Ara çıktılar
+        let interHtml = '';
+        if (job.investigation_findings) {
+          interHtml += `<details class="mt-3 border border-indigo-200 rounded-lg overflow-hidden">
+            <summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 select-none hover:bg-indigo-100">Investigator Bulguları</summary>
+            <pre class="px-3 py-2 text-xs text-gray-700 whitespace-pre-wrap leading-relaxed bg-white">${esc(job.investigation_findings)}</pre>
+          </details>`;
+        }
+        if (job.review_feedback) {
+          interHtml += `<details open class="mt-2 border border-red-200 rounded-lg overflow-hidden">
+            <summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-red-700 bg-red-50 select-none hover:bg-red-100">Reviewer Geri Bildirimi</summary>
+            <pre class="px-3 py-2 text-xs text-red-700 whitespace-pre-wrap leading-relaxed bg-white">${esc(job.review_feedback)}</pre>
+          </details>`;
+        }
+        if (job.llm_output && step === 'review') {
+          interHtml += `<details class="mt-2 border border-gray-200 rounded-lg overflow-hidden">
+            <summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-gray-600 bg-gray-50 select-none hover:bg-gray-100">Mevcut Taslak (Gözden Geçiriliyor)</summary>
+            <div class="px-4 py-3 prose max-w-none text-xs bg-white">${marked.parse(job.llm_output)}</div>
+          </details>`;
+        }
+
+        outputHtml = `
+          <div class="mb-3 p-3 bg-white border border-gray-200 rounded-lg">
+            <div class="flex flex-wrap items-start gap-x-1 gap-y-3 mb-3">${stepperHtml}</div>
+            <div class="flex items-center gap-2 text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+              <span class="spin text-sm">⟳</span>
+              <span class="text-xs">${esc(stepDesc)}</span>
+            </div>
+          </div>
+          ${interHtml}`;
+      } else if (job.llm_output) {
+        outputHtml = `<div class="border border-gray-200 rounded-lg p-5 bg-white prose max-w-none text-sm shadow-sm">
+          ${marked.parse(job.llm_output)}
+        </div>`;
+      }
+
+      // Error banner
+      const errHtml = job.error
+        ? `<div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+            <strong>Hata:</strong> ${esc(job.error)}
+          </div>`
+        : '';
+
+      const priTag = job.priority
+        ? `<span class="text-xs ${priorityClass(job.priority)} px-2 py-0.5 rounded font-medium">${esc(job.priority)}</span>`
+        : '';
+      const dbBadge = job.saved_to_db
+        ? `<span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-mono" title="MongoDB'ye kaydedildi">✓ DB'de</span>`
+        : `<span class="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded font-mono">DB'de değil</span>`;
+
+      const descHtml = job.description
+        ? `<div class="mt-3 border border-gray-200 rounded-lg bg-white">
+            <details>
+              <summary class="cursor-pointer px-3 py-2 text-xs font-semibold text-gray-600 select-none hover:text-blue-600">
+                Tam Açıklama
+              </summary>
+              <pre class="px-3 pb-3 text-xs text-gray-600 whitespace-pre-wrap leading-relaxed border-t border-gray-100 mt-1 pt-2">${esc(job.description)}</pre>
+            </details>
+          </div>`
+        : '';
+
+      container.innerHTML = `
+        <div class="max-w-3xl mx-auto">
+
+          <!-- Header -->
+          <div class="mb-5">
+            <div class="flex items-start justify-between gap-3">
+              <h2 class="text-xl font-bold text-slate-900 font-mono tracking-tight">${esc(job.key)}</h2>
+              ${dbBadge}
+            </div>
+            <p class="text-gray-600 mt-1 text-sm font-medium">${esc(job.summary)}</p>
+            <div class="flex flex-wrap items-center gap-2 mt-2">
+              ${badge(job.status)}
+              ${priTag}
+              <span class="text-xs text-gray-400">Güncellendi: ${relTime(job.updated_at)}</span>
+              <span class="text-xs text-gray-400">Oluşturuldu: ${relTime(job.created_at)}</span>
+            </div>
+            ${descHtml}
+          </div>
+
+          ${errHtml}
+
+          <!-- KB Matches -->
+          <section class="mb-5">
+            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              📚 KB Eşleşmeleri
+              <span class="ml-1 bg-gray-200 text-gray-600 rounded-full px-1.5 text-xs font-mono">${job.kb_matches?.length || 0}</span>
+            </h3>
+            ${kbHtml}
+          </section>
+
+          <!-- Similar Tickets -->
+          <section class="mb-5">
+            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              🔗 Benzer Ticketlar
+              <span class="ml-1 bg-purple-200 text-purple-700 rounded-full px-1.5 text-xs font-mono">${job.similar_tickets?.length || 0}</span>
+            </h3>
+            ${similarHtml}
+          </section>
+
+          <!-- Prompts -->
+          <section class="mb-5 border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">🧠 Prompt Detayları</h3>
+            ${sysHtml || '<p class="text-gray-400 italic text-xs">Henüz prompt oluşturulmadı.</p>'}
+            ${usrHtml}
+          </section>
+
+          <!-- RCA Output -->
+          <section class="mb-6">
+            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">🤖 RCA Raporu</h3>
+            ${outputHtml}
+          </section>
+
+        </div>`;
+    }
+
+    // ─── Actions ──────────────────────────────────────────────
+    async function fetchAndProcess() {
+      const projectKey = document.getElementById('project-key').value.trim() || null;
+      const btn    = document.getElementById('fetch-btn');
+      const status = document.getElementById('fetch-status');
+
+      btn.disabled    = true;
+      btn.textContent = '⏳ Yükleniyor…';
+      status.textContent = 'Jira ticketları çekiliyor…';
+      status.className   = 'text-xs text-gray-500';
+      status.classList.remove('hidden');
+
+      try {
+        const res  = await fetch('/api/fetch-and-process', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ project_key: projectKey })
+        });
+        if (!res.ok) {
+          let msg = 'Sunucu hatası';
+          try { const e = await res.clone().json(); msg = e.detail || msg; } catch { msg = (await res.text()) || msg; }
+          throw new Error(msg);
+        }
+        const data = await res.json();
+        const skippedNote = data.skipped > 0 ? `, ${data.skipped} daha önce işlendi (atlandı)` : '';
+        status.textContent = `${data.queued} ticket kuyruğa alındı (toplam: ${data.total}${skippedNote})`;
+        await loadJobs();
+      } catch(e) {
+        status.textContent = `Hata: ${e.message}`;
+        status.className   = 'text-xs text-red-500';
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = '🔄 Fetch & Process All';
+        setTimeout(() => status.classList.add('hidden'), 6000);
+      }
+    }
+
+    async function triggerSingle() {
+      const key = document.getElementById('single-key').value.trim();
+      if (!key) return;
+      await fetch('/rca/trigger', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ issue_key: key })
+      });
+      document.getElementById('single-key').value = '';
+      await loadJobs();
+      // Select the newly triggered job
+      selectedKey = key;
+      setTimeout(() => refreshDetail(key), 500);
+    }
+
+    async function deleteJob(event, key) {
+      event.stopPropagation();
+      if (!confirm(`${key} silinsin mi? Tekrar fetch edildiğinde yeniden işlenir.`)) return;
+      await fetch(`/api/jobs/${key}`, { method: 'DELETE' });
+      delete detailCache[key];
+      if (selectedKey === key) {
+        selectedKey = null;
+        document.getElementById('job-detail').innerHTML = `
+          <div class="text-center text-gray-300 py-24 select-none">
+            <div class="text-6xl mb-4">🤖</div>
+            <p class="text-xl font-semibold text-gray-400">Bir ticket seçin</p>
+            <p class="text-sm mt-2 text-gray-300">Sol panelden ticket'a tıklayın</p>
+          </div>`;
+      }
+      await loadJobs();
+    }
+
+    function onPdfSelected() {
+      const file = document.getElementById('pdf-file').files[0];
+      const label = document.getElementById('pdf-label');
+      const btn   = document.getElementById('pdf-btn');
+      if (file) {
+        label.textContent = '📄 ' + file.name;
+        btn.disabled = false;
+      } else {
+        label.textContent = '📄 PDF seç…';
+        btn.disabled = true;
+      }
+    }
+
+    async function uploadPdf() {
+      const input  = document.getElementById('pdf-file');
+      const status = document.getElementById('pdf-status');
+      const btn    = document.getElementById('pdf-btn');
+      const file   = input.files[0];
+      if (!file) return;
+
+      const fd = new FormData();
+      fd.append('file', file);
+
+      btn.disabled    = true;
+      btn.textContent = '⏳';
+      status.textContent = 'Yükleniyor…';
+      status.className   = 'text-xs text-gray-500 mt-1';
+      status.classList.remove('hidden');
+
+      // Sağ panelde yükleme ekranı göster
+      selectedKey = null;
+      document.getElementById('job-detail').innerHTML = `
+        <div class="max-w-3xl mx-auto py-12 text-center">
+          <div class="text-5xl spin mb-4">⟳</div>
+          <p class="text-lg font-semibold text-gray-500 mb-1">PDF işleniyor…</p>
+          <p class="text-sm text-gray-400">${esc(file.name)}</p>
+          <p class="text-xs text-gray-300 mt-3">PDF metni okunuyor, LLM ile KB kayıtları oluşturuluyor.<br>Bu işlem PDF boyutuna göre 30–120 saniye sürebilir.</p>
+        </div>`;
+
+      try {
+        const res = await fetch('/api/kb/upload', { method: 'POST', body: fd });
+        if (!res.ok) {
+          let msg = 'Sunucu hatası';
+          try { const e = await res.clone().json(); msg = e.detail || msg; } catch {}
+          throw new Error(msg);
+        }
+        const data = await res.json();
+
+        status.textContent = '✔ ' + data.records_created + ' kayıt eklendi';
+        status.className   = 'text-xs text-emerald-600 mt-1';
+        input.value = '';
+        document.getElementById('pdf-label').textContent = '📄 PDF seç…';
+        setTimeout(() => status.classList.add('hidden'), 6000);
+
+        renderPdfResult(data);
+      } catch(e) {
+        status.textContent = 'Hata: ' + e.message;
+        status.className   = 'text-xs text-red-500 mt-1';
+        document.getElementById('job-detail').innerHTML = `
+          <div class="max-w-3xl mx-auto py-12 text-center">
+            <div class="text-5xl mb-4">⚠️</div>
+            <p class="text-lg font-semibold text-red-500 mb-2">PDF yükleme başarısız</p>
+            <p class="text-sm text-gray-500">${esc(e.message)}</p>
+          </div>`;
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Yükle';
+      }
+    }
+
+    function renderPdfResult(data) {
+      const colBadgeColor = {
+        kb_application:   'bg-blue-100 text-blue-700',
+        kb_database:      'bg-purple-100 text-purple-700',
+        kb_os:            'bg-orange-100 text-orange-700',
+        kb_network:       'bg-cyan-100 text-cyan-700',
+        kb_auth:          'bg-rose-100 text-rose-700',
+        kb_storage:       'bg-amber-100 text-amber-700',
+        kb_security:      'bg-red-100 text-red-700',
+        kb_infrastructure:'bg-slate-100 text-slate-700',
+        kb_middleware:    'bg-green-100 text-green-700',
+      };
+
+      // Collection özeti
+      const colRows = Object.entries(data.collections || {}).map(([col, count]) => {
+        const cls = colBadgeColor[col] || 'bg-gray-100 text-gray-600';
+        return `<div class="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
+          <span class="text-xs px-2 py-0.5 rounded font-mono ${cls}">${esc(col)}</span>
+          <span class="text-xs font-semibold text-gray-600">${count} kayıt</span>
+        </div>`;
+      }).join('');
+
+      // Kayıt listesi
+      const recRows = (data.records || []).map((r, i) => {
+        const cls = colBadgeColor[r.collection] || 'bg-gray-100 text-gray-600';
+        return `<tr class="border-b border-gray-100 hover:bg-gray-50">
+          <td class="py-1.5 px-2 text-xs font-mono text-gray-400">${i + 1}</td>
+          <td class="py-1.5 px-2 text-xs font-mono text-slate-600">${esc(r.id)}</td>
+          <td class="py-1.5 px-2 text-xs text-gray-700 max-w-xs truncate">${esc(r.title)}</td>
+          <td class="py-1.5 px-2"><span class="text-xs px-2 py-0.5 rounded font-mono ${cls}">${esc((r.collection||'').replace('kb_',''))}</span></td>
+        </tr>`;
+      }).join('');
+
+      document.getElementById('job-detail').innerHTML = `
+        <div class="max-w-3xl mx-auto">
+
+          <!-- Başlık -->
+          <div class="mb-5">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-2xl">📄</span>
+              <h2 class="text-xl font-bold text-slate-900 truncate">${esc(data.filename)}</h2>
+              <span class="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-semibold shrink-0">✔ Tamamlandı</span>
+            </div>
+            <div class="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
+              <span>📄 <strong>${data.pages}</strong> sayfa</span>
+              <span>✂️ <strong>${data.chunks_processed}</strong> chunk işlendi</span>
+              <span>📚 <strong>${data.records_created}</strong> KB kaydı oluşturuldu</span>
+              <span>🗃️ <strong>${Object.keys(data.collections||{}).length}</strong> collection'a yazıldı</span>
+            </div>
+          </div>
+
+          <!-- Collection Dağılımı -->
+          <section class="mb-5">
+            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              🗄️ Collection Dağılımı
+            </h3>
+            <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+              ${colRows || '<p class="text-xs text-gray-400 italic">Kayıt yok</p>'}
+            </div>
+          </section>
+
+          <!-- Kayıt Listesi -->
+          <section class="mb-6">
+            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              📋 Oluşturulan KB Kayıtları
+              <span class="ml-1 bg-gray-200 text-gray-600 rounded-full px-1.5 text-xs font-mono">${data.records_created}</span>
+            </h3>
+            <div class="border border-gray-200 rounded-lg overflow-hidden bg-white">
+              <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th class="py-1.5 px-2 text-xs text-gray-400 text-left font-medium w-8">#</th>
+                    <th class="py-1.5 px-2 text-xs text-gray-400 text-left font-medium">ID</th>
+                    <th class="py-1.5 px-2 text-xs text-gray-400 text-left font-medium">Başlık</th>
+                    <th class="py-1.5 px-2 text-xs text-gray-400 text-left font-medium">Collection</th>
+                  </tr>
+                </thead>
+                <tbody>${recRows || '<tr><td colspan="4" class="py-4 text-center text-xs text-gray-400 italic">Kayıt yok</td></tr>'}</tbody>
+              </table>
+            </div>
+          </section>
+
+        </div>`;
+    }
+
+    async function clearJobs() {
+      if (!confirm('Tüm job geçmişi silinsin mi?')) return;
+      await fetch('/api/jobs', { method: 'DELETE' });
+      selectedKey = null;
+      detailCache = {};
+      document.getElementById('job-detail').innerHTML = `
+        <div class="text-center text-gray-300 py-24 select-none">
+          <div class="text-6xl mb-4">🤖</div>
+          <p class="text-xl font-semibold text-gray-400">Bir ticket seçin</p>
+        </div>`;
+      await loadJobs();
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────
+    function relTime(iso) {
+      if (!iso) return '';
+      const d = Date.now() - new Date(iso).getTime();
+      if (d < 60000)    return `${Math.round(d/1000)}s önce`;
+      if (d < 3600000)  return `${Math.round(d/60000)}dk önce`;
+      return `${Math.round(d/3600000)}sa önce`;
+    }
+
+    function esc(s) {
+      if (s == null) return '';
+      return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+[
+    {
+        "id": "kb-storage-0001",
+        "kb": "storage_kb",
+        "title": "Finans DB Oracle 19c iSCSI Bağlantı Kesilmesi ve I/O Timeout Hataları",
+        "content": "Problem: FinansPro uygulamasının kullandığı Oracle 19c (Finans DB) sunucusunda veritabanı işlemleri aniden duruyor ve sistem 'read-only' moda geçiyor.\n\nBelirtiler: Ubuntu 22.04 dmesg loglarında 'iSCSI: aborting task' ve 'connection timeout' mesajları görülüyor. Oracle Alert Log üzerinde 'ORA-01110' ve 'I/O error' hataları raporlanıyor.\n\nKök Neden: Cisco AnyConnect ve Aruba Switch konfigürasyonundaki MTU uyumsuzluğu nedeniyle 9000 (Jumbo Frames) paketlerinin bazı segmentlerde fragmentasyona uğrayarak iSCSI session'ı düşürmesi.\n\nAdım Adım Çözüm:\n1. Sunucu tarafında 'iscsiadm -m session -P 3' komutu ile session durumu kontrol edilir.\n2. 'ip link set dev eth1 mtu 1500' komutu ile MTU geçici olarak standart değere çekilir (Test amaçlı).\n3. Aruba switch portlarında 'jumbo frame' desteğinin aktif olduğu doğrulanır.\n4. /etc/iscsi/iscsid.conf dosyasında node.conn[0].timeo.noop_out_interval değeri 5, node.conn[0].timeo.noop_out_timeout değeri 10 olarak güncellenir.\n5. iSCSI servisi 'systemctl restart iscsid' ile yeniden başlatılır.\n\nÖnleyici Tedbir: Network topolojisindeki tüm cihazlarda (End-to-End) MTU değerlerinin 9000 olduğundan emin olunmalı ve izleme sistemine (Zabbix/Nagios) iSCSI latency metriği eklenmelidir.",
+        "tags": [
+            "oracle",
+            "iscsi",
+            "ubuntu",
+            "jumbo-frames"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-01-15",
+        "author": "storage-team",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04",
+                "Oracle 19c"
+            ],
+            "related_cis": [
+                "FIN-DB-SRV-01",
+                "Aruba-6300M"
+            ]
+        }
+    },
+    {
+        "id": "kb-storage-0002",
+        "kb": "storage_kb",
+        "title": "PostgreSQL 15 Uygulama DB WAL Loglarının Disk Alanını Tüketmesi",
+        "content": "Problem: PostgreSQL 15 sunucusunda (10.0.5.22) disk doluluğu %100'e ulaştığı için uygulama veritabanına veri yazımı durdu.\n\nBelirtiler: HR-Portal uygulamasında 'Internal Server Error (500)' hataları. Sunucu üzerinde 'df -h' komutu /var/lib/postgresql dizininin dolu olduğunu gösteriyor.\n\nKök Neden: 'archive_mode' aktif olmasına rağmen 'archive_command' parametresinin hatalı çalışması veya hedef depolama alanına erişilememesi sonucu WAL (Write Ahead Log) dosyalarının birikmesi.\n\nAdım Adım Çözüm:\n1. PostgreSQL logları incelenir: 'tail -f /var/log/postgresql/postgresql-15-main.log'.\n2. 'pg_archivecleanup' aracı kullanılarak en eski checkpoint öncesindeki loglar güvenli bir şekilde temizlenir.\n3. postgresql.conf dosyasındaki 'archive_command' doğrulanır; hedef NAS/NFS mount noktasının yazılabilir olduğu kontrol edilir.\n4. 'max_wal_size' parametresi sistem kaynaklarına göre optimize edilir (örn: 2GB).\n5. Veritabanı servisi 'systemctl restart postgresql' ile başlatılır.\n\nÖnleyici Tedbir: WAL dizini için ayrı bir LVM volume oluşturulmalı ve disk doluluğu %80'e ulaştığında tetiklenen bir otomatik uyarı mekanizması kurulmalıdır.",
+        "tags": [
+            "postgresql",
+            "wal-logs",
+            "disk-full",
+            "ubuntu"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-20",
+        "author": "db-admin",
+        "metadata": {
+            "applies_to": [
+                "PostgreSQL 15",
+                "Ubuntu 22.04"
+            ],
+            "related_cis": [
+                "APP-DB-SRV-05"
+            ]
+        }
+    },
+    {
+        "id": "kb-storage-0003",
+        "kb": "storage_kb",
+        "title": "FinansPro Dosya Eki Depolama Alanında Latency Sorunu",
+        "content": "Problem: FinansPro kullanıcıları, sisteme fatura/belge yüklerken veya görüntülerken ciddi gecikmeler (10-15 saniye) yaşıyor.\n\nBelirtiler: Uygulama loglarında 'java.io.IOException: Storage connection timeout' hataları. Kullanıcı arayüzünde yükleme çubuğunun takılması.\n\nKök Neden: SMB/CIFS protokolü ile bağlı olan paylaşımlı disk alanında (NAS) aşırı dosya fragmentasyonu ve eş zamanlı bağlantı limitinin (Session Limit) aşılması.\n\nAdım Adım Çözüm:\n1. Uygulama sunucusu üzerinden 'mount -v' ile mount seçenekleri kontrol edilir. 'rsize' ve 'wsize' değerleri 1048576 olarak optimize edilir.\n2. NAS tarafında disk I/O wait süreleri incelenir. RAID grubunda 'rebuilding' işlemi olup olmadığı kontrol edilir.\n3. 'smbstatus' komutu ile aktif sessionlar temizlenir.\n4. FinansPro config dosyasında dosya yazma işlemi için kullanılan thread pool boyutu artırılır.\n\nÖnleyici Tedbir: Dosya ekleri için hiyerarşik klasör yapısına (örn: /YYYY/MM/DD/) geçilmeli, tek bir klasörde 10.000'den fazla dosya tutulmamalıdır.",
+        "tags": [
+            "finanspro",
+            "nas",
+            "smb",
+            "latency"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-02-05",
+        "author": "app-support",
+        "metadata": {
+            "applies_to": [
+                "FinansPro v4.2",
+                "Windows File Server"
+            ],
+            "related_cis": [
+                "NAS-STORAGE-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-storage-0004",
+        "kb": "storage_kb",
+        "title": "Ubuntu 22.04 LVM Volume Genişletme Hatası (Encryption Active)",
+        "content": "Problem: HR-Portal sunucusunda yeni bir disk eklendi ancak LVM volume'u genişletilirken hata alınıyor.\n\nBelirtiler: 'lvextend' komutu başarılı olmasına rağmen 'resize2fs' komutu 'Bad magic number in super-block' veya 'Device or resource busy' hatası veriyor.\n\nKök Neden: Diskin LUKS (Linux Unified Key Setup) ile şifrelenmiş olması. Dosya sistemi doğrudan LVM üzerinde değil, şifreli mapping (dm-crypt) üzerinde bulunmaktadır.\n\nAdım Adım Çözüm:\n1. 'lsblk' ile disk hiyerarşisi doğrulanır.\n2. Fiziksel disk ve Volume Group (VG) genişletilir: 'pvresize /dev/sdb', 'vgextend vg_data /dev/sdb'.\n3. Logical Volume genişletilir: 'lvextend -L +50G /dev/vg_data/lv_hr_data'.\n4. LUKS container güncellenir: 'cryptsetup resize hr_encrypted_disk'.\n5. Dosya sistemi şifreli mapping üzerinde genişletilir: 'resize2fs /dev/mapper/hr_encrypted_disk'.\n\nÖnleyici Tedbir: Şifreli disk operasyonları öncesinde mutlaka 'cryptsetup status' komutu ile mapping ismi ve durumu doğrulanmalı, snapshot alınmalıdır.",
+        "tags": [
+            "ubuntu",
+            "lvm",
+            "encryption",
+            "luks"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-10",
+        "author": "sysadmin-l3",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04 LTS"
+            ],
+            "related_cis": [
+                "HR-PORTAL-SRV"
+            ]
+        }
+    },
+    {
+        "id": "kb-storage-0005",
+        "kb": "storage_kb",
+        "title": "Windows 11 VSS (Volume Shadow Copy) Kaynaklı Disk Doluluğu",
+        "content": "Problem: Windows 11 istemci bilgisayarlarda disk alanı dolu gözükmesine rağmen klasör boyutları toplandığında arada büyük fark (örn: 100GB) oluşuyor.\n\nBelirtiler: Kullanıcı 'Yetersiz disk alanı' uyarısı alıyor. 'Treesize' veya benzeri araçlar sistem dosyalarında büyük bir alan kullanımı raporluyor.\n\nKök Neden: Windows Update veya yedekleme yazılımlarının tetiklediği Volume Shadow Copy (VSS) servisinin limitlendirilmemiş olması ve eski snapshotları temizlememesi.\n\nAdım Adım Çözüm:\n1. Komut istemi (Admin) açılır.\n2. 'vssadmin list shadowstorage' ile kullanılan alan kontrol edilir.\n3. Shadow copy limiti manuel olarak belirlenir: 'vssadmin resize shadowstorage /for=C: /on=C: /maxsize=10%'.\n4. Eski snapshotlar silinir: 'vssadmin delete shadows /for=C: /oldest'.\n5. Disk temizleme (cleanmgr) aracı 'Sistem dosyalarını temizle' seçeneği ile çalıştırılır.\n\nÖnleyici Tedbir: Techcorp.local GPO üzerinden tüm Windows 11 cihazlar için Shadow Copy max-size limiti %10 olarak set edilmelidir.",
+        "tags": [
+            "windows11",
+            "vss",
+            "disk-cleanup"
+        ],
+        "severity": "low",
+        "last_verified": "2025-02-12",
+        "author": "desktop-support",
+        "metadata": {
+            "applies_to": [
+                "Windows 11 Pro"
+            ],
+            "related_cis": [
+                "TECHCORP-WS-GLOBAL"
+            ]
+        }
+    },
+    {
+        "id": "kb-storage-0006",
+        "kb": "storage_kb",
+        "title": "Multipath I/O (MPIO) Path Failure on Oracle DB Nodes",
+        "content": "Problem: Finans DB sunucusu yedek path üzerinden çalışıyor, ana fiber kanal (FC) bağlantısı 'failed' durumunda.\n\nBelirtiler: 'multipath -ll' komutu çıktısında yolların bazılarının 'failed faulty' olarak işaretlenmesi. Storage controller üzerinde 'Path Loss' uyarısı.\n\nKök Neden: Aruba Switch üzerindeki SFP modül arızası veya HBA (Host Bus Adapter) firmware versiyonunun storage array ile uyumsuzluğu.\n\nAdım Adım Çözüm:\n1. 'multipath -v3' ile detaylı log analizi yapılır.\n2. Fiziksel katmanda SFP modül değişiminden sonra 'echo 1 > /sys/class/fc_host/hostX/issue_lip' komutu ile link resetlenir.\n3. /etc/multipath.conf dosyasında 'path_grouping_policy' ayarının 'multibus' veya 'failover' (best practice hangisiyse) olduğu doğrulanır.\n4. 'systemctl reload multipathd' komutu ile konfigürasyon yenilenir.\n5. 'multipath -r' ile yollar yeniden taranır.\n\nÖnleyici Tedbir: HBA kartlarının firmware güncellemeleri TechCorp 'Patch Management' takvimine eklenmeli ve redundant switch yapısı periyodik test edilmelidir.",
+        "tags": [
+            "mpio",
+            "storage-networking",
+            "oracle",
+            "fc"
+        ],
+        "severity": "high",
+        "last_verified": "2025-01-25",
+        "author": "storage-team",
+        "metadata": {
+            "applies_to": [
+                "Oracle 19c",
+                "Enterprise Storage"
+            ],
+            "related_cis": [
+                "SAN-SW-01",
+                "SAN-SW-02"
+            ]
+        }
+    },
+    {
+        "id": "kb-storage-0007",
+        "kb": "storage_kb",
+        "title": "NFS Mount Point Stale File Handle Hatası",
+        "content": "Problem: Ubuntu uygulama sunucuları NAS üzerindeki paylaşıma erişemiyor ve 'Stale file handle' hatası alıyor.\n\nBelirtiler: 'ls /mnt/data' komutu girdi/çıktı hatası veriyor. Uygulama tarafında HR-Portal'a yüklenen resimler görüntülenemiyor.\n\nKök Neden: NAS tarafında bir reboot veya export değişikliği sonrası client üzerindeki inode bilgilerinin geçersiz kalması.\n\nAdım Adım Çözüm:\n1. İlgili mount noktası 'umount -f /mnt/data' ile zorla sökülür. Eğer 'device is busy' hatası alınırsa 'fuser -km /mnt/data' ile processler sonlandırılır.\n2. /etc/fstab dosyası kontrol edilir.\n3. 'mount -a' komutu ile mount işlemi yeniden gerçekleştirilir.\n4. NFS versiyonu zorlaması (nfsvers=4.1) eklenerek stabilite artırılır.\n\nÖnleyici Tedbir: NAS tarafındaki maintenance işlemleri öncesinde tüm client servislerinin durdurulması protokolü uygulanmalıdır.",
+        "tags": [
+            "nfs",
+            "stale-handle",
+            "nas",
+            "ubuntu"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-02-01",
+        "author": "sysadmin-l2",
+        "metadata": {
+            "applies_to": [
+                "Ubuntu 22.04",
+                "HR-Portal"
+            ],
+            "related_cis": [
+                "NAS-STORAGE-02"
+            ]
+        }
+    },
+    {
+        "id": "kb-storage-0008",
+        "kb": "storage_kb",
+        "title": "SAN Storage S.M.A.R.T. Predictive Failure Alarmı",
+        "content": "Problem: Ana depolama ünitesinde (SAN) bir fiziksel diskin bozulmak üzere olduğuna dair SNMP trap alındı.\n\nBelirtiler: Storage Management Console üzerinde 'Predictive Failure' sarı alarmı. Disk üzerinde amber LED yanıp sönmesi.\n\nKök Neden: Diskin manyetik yüzeyinde artan 'reallocated sectors' sayısı nedeniyle donanım limitlerinin aşılması.\n\nAdım Adım Çözüm:\n1. İlgili diskin hangi RAID grubuna (Aggregate) ait olduğu belirlenir.\n2. Yedek diskin (Hot Spare) devrede olup olmadığı kontrol edilir.\n3. 'Disk fail' komutu ile disk yazılımsal olarak sistemden çıkarılır (Bu işlem rebuild'ı başlatır).\n4. Fiziksel disk değişimi yapılır.\n5. Rebuild işleminin ilerlemesi konsol üzerinden takip edilir (Öncelik: Medium).\n\nÖnleyici Tedbir: 5 yılı dolduran disklerin toplu değişim planı (Lifecyle Management) yapılmalıdır.",
+        "tags": [
+            "san",
+            "raid",
+            "hardware-failure",
+            "disk"
+        ],
+        "severity": "high",
+        "last_verified": "2025-03-01",
+        "author": "storage-team",
+        "metadata": {
+            "applies_to": [
+                "Enterprise SAN Array"
+            ],
+            "related_cis": [
+                "SAN-DISK-SHELF-04"
+            ]
+        }
+    },
+    {
+        "id": "kb-storage-0009",
+        "kb": "storage_kb",
+        "title": "PostgreSQL Temp File Disk Usage ve Swap Bellek Sorunu",
+        "content": "Problem: Büyük ölçekli raporlamalar sırasında uygulama veritabanı sunucusunda /tmp dizini aniden doluyor.\n\nBelirtiler: FinansPro 'Report Generation' modülü hata veriyor. Sistem 'out of memory' (OOM) killer tarafından process sonlandırıyor.\n\nKök Neden: PostgreSQL 'work_mem' parametresinin çok düşük olması nedeniyle karmaşık join işlemlerinin diske (temp files) yazılması.\n\nAdım Adım Çözüm:\n1. postgresql.conf içindeki 'work_mem' değeri mevcut RAM miktarının %1'i kadar artırılır (örn: 64MB).\n2. 'temp_file_limit' parametresi set edilerek diskin tamamen dolması engellenir.\n3. /tmp dizini için kullanılan mount noktasının 'noatime' opsiyonu ile hızı artırılır.\n4. 'pg_stat_database' view'u üzerinden 'temp_files' ve 'temp_bytes' kolonları izlenir.\n\nÖnleyici Tedbir: Raporlama sorguları optimize edilmeli ve 'Explain Analyze' ile disk kullanımı kontrol edilmelidir.",
+        "tags": [
+            "postgresql",
+            "performance",
+            "tmp-files",
+            "finanspro"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-28",
+        "author": "db-admin",
+        "metadata": {
+            "applies_to": [
+                "PostgreSQL 15"
+            ],
+            "related_cis": [
+                "FIN-DB-SRV-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-storage-0010",
+        "kb": "storage_kb",
+        "title": "Storage Snapshot Replikasyon Gecikmesi (RPO İhlali)",
+        "content": "Problem: Disaster Recovery (DR) sahası ile merkez ofis arasındaki storage replikasyon süresi 1 saati aştı.\n\nBelirtiler: Monitoring ekranında 'RPO Threshold Exceeded' uyarısı. Replikasyon kuyruğunda bekleyen veri miktarının artması.\n\nKök Neden: TechCorp ile DR sahası arasındaki Fortinet Firewall üzerinden geçen tunnel trafiğinde 'Traffic Shapping' limitine takınılması veya hat üzerinde yüksek paket kaybı.\n\nAdım Adım Çözüm:\n1. Firewall üzerinden IPsec VPN tunnel sağlığı ve bandwidth kullanımı kontrol edilir.\n2. Storage replikasyon schedule'ı 'incremental-only' olarak doğrulanır.\n3. Bant genişliği geçici olarak (off-peak hours) artırılır.\n4. 'Snapshot reserve' alanı doluluğu kontrol edilir; yetersiz ise alan artırılır.\n\nÖnleyici Tedbir: Replikasyon trafiği için dedicated bir VLAN ve QoS (Quality of Service) kuralı tanımlanmalıdır.",
+        "tags": [
+            "replication",
+            "dr",
+            "snapshot",
+            "fortinet"
+        ],
+        "severity": "high",
+        "last_verified": "2025-02-10",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Storage Replication Engine"
+            ],
+            "related_cis": [
+                "DR-STORAGE-LINK"
+            ]
+        }
+    }
+]

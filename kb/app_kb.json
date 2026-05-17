@@ -1,0 +1,236 @@
+[
+    {
+        "id": "kb-app-0001",
+        "kb": "app_kb",
+        "title": "FinansPro HikariCP Connection Pool Exhaustion Sorunu",
+        "content": "Problem: FinansPro (Java/Spring) uygulaması yüksek yük altında veritabanı bağlantılarını kapatamıyor ve yeni isteklere cevap veremez hale geliyor.\nBelirtiler: Kullanıcılar '500 Internal Server Error' alıyor. Uygulama loglarında 'HikariPool-1 - Connection is not available, request timed out after 30000ms' hatası görülüyor. Oracle 19c tarafında aktif oturum sayısı limitlere ulaşıyor.\nKök Neden: FinansPro içerisindeki '@Transactional' anotasyonunun yanlış kullanımı sonucu bazı uzun süren raporlama sorgularında veritabanı bağlantılarının serbest bırakılmaması.\nAdım Adım Çözüm: 1. Ubuntu sunucusu üzerinde 'sudo systemctl restart finanspro' komutu ile servisi yeniden başlatarak pool'u temizleyin. 2. application.properties dosyasında 'spring.datasource.hikari.maximum-pool-size' değerini geçici olarak 20'den 50'ye çıkarın. 3. Kod tarafında 'read-only' transaction'ları ayırın. 4. Oracle 19c üzerinde 'INACTIVE' statüsünde bekleyen zombi session'ları kill edin.\nÖnleyici Tedbir: Kod inceleme (Code Review) süreçlerinde transaction yönetimi standartlarını sıkılaştırın ve Micrometer/Prometheus ile connection pool kullanım oranlarını anlık olarak izleyin.",
+        "tags": [
+            "FinansPro",
+            "Oracle 19c",
+            "HikariCP",
+            "Spring Boot"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-02-10",
+        "author": "app-support-l3",
+        "metadata": {
+            "applies_to": [
+                "FinansPro v2.4.1"
+            ],
+            "related_cis": [
+                "finans-db-01",
+                "finanspro-app-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-app-0002",
+        "kb": "app_kb",
+        "title": "HR-Portal React Frontend ve Okta MFA Senkronizasyon Hatası",
+        "content": "Problem: HR-Portal (React/Node.js) uygulamasına giriş yapan kullanıcılar, Okta MFA aşamasını geçtikten sonra ana sayfaya yönlendirilemiyor ve beyaz ekranla karşılaşıyor.\nBelirtiler: Browser konsolunda 'Invalid Token' ve 'Nonce mismatch' hataları. Kullanıcıların techcorp.local domaini üzerinden aldığı ticket'lar Okta dashboard'unda başarılı görünmesine rağmen uygulama oturum açmıyor.\nKök Neden: İstemci tarafındaki sistem saatinin (Windows 11) Okta sunucu saati ile 5 dakikadan fazla fark göstermesi sonucu JWT token geçerlilik kontrolünün (skew time) başarısız olması.\nAdım Adım Çözüm: 1. Kullanıcının Windows 11 cihazında 'Ayarlar -> Zaman ve Dil' menüsünden saati 'Otomatik Ayarla' seçeneğini aktif edin. 2. Browser cache ve local storage verilerini temizleyin. 3. Node.js backend tarafında okta-jwt-verifier konfigürasyonundaki 'maxClockSkew' parametresini 300 saniyeye yükseltin.\nÖnleyici Tedbir: Tüm şirket içi cihazlarda NTP (Network Time Protocol) senkronizasyonunun techcorp.local DC'leri üzerinden düzenli yapıldığını Group Policy ile kontrol edin.",
+        "tags": [
+            "HR-Portal",
+            "Okta",
+            "MFA",
+            "Windows 11"
+        ],
+        "severity": "high",
+        "last_verified": "2025-02-12",
+        "author": "iam-team",
+        "metadata": {
+            "applies_to": [
+                "HR-Portal v1.2"
+            ],
+            "related_cis": [
+                "okta-tenant-01",
+                "hr-portal-node-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-app-0003",
+        "kb": "app_kb",
+        "title": "PostgreSQL 15 Uygulama DB Deadlock Sorunları",
+        "content": "Problem: HR-Portal üzerinden yapılan toplu personel güncellemeleri sırasında veritabanı kilitleniyor (deadlock).\nBelirtiler: Uygulama loglarında 'PSQLException: ERROR: deadlock detected' mesajı. PostgreSQL tarafında 'pg_stat_activity' sorgusunda bekleyen (waiting) process sayısında artış.\nKök Neden: Aynı anda çalışan iki farklı Node.js worker servisinin, personel tablosunu ve yetki tablosunu farklı sıralama ile (order of operation) update etmeye çalışması.\nAdım Adım Çözüm: 1. PostgreSQL üzerinde 'SELECT pg_terminate_backend(pid);' komutu ile deadlock'a neden olan bloklayıcı session'ı sonlandırın. 2. Node.js tarafındaki güncelleme fonksiyonlarını 'SELECT FOR UPDATE' kullanarak sıralı hale getirin. 3. İşlem sırasını her zaman 'Personel -> Yetki' olacak şekilde standartlaştırın.\nÖnleyici Tedbir: Veritabanı izolasyon seviyelerini (Isolation Levels) gözden geçirin ve PostgreSQL loglarında 'log_lock_waits = on' ayarını aktif ederek uzun süren kilitlenmeleri takip edin.",
+        "tags": [
+            "PostgreSQL 15",
+            "Database",
+            "Deadlock",
+            "Node.js"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-01-25",
+        "author": "dba-team",
+        "metadata": {
+            "applies_to": [
+                "App-DB-Postgres"
+            ],
+            "related_cis": [
+                "db-server-ubuntu-02"
+            ]
+        }
+    },
+    {
+        "id": "kb-app-0004",
+        "kb": "app_kb",
+        "title": "FinansPro Java Heap Space (Out Of Memory) Hatası",
+        "content": "Problem: FinansPro sunucusu yoğun rapor çekme dönemlerinde aniden kapanıyor ve 'java.lang.OutOfMemoryError: Java heap space' hatası fırlatıyor.\nBelirtiler: Ubuntu sunucusu üzerinde RAM kullanımının %95 üzerine çıkması. Uygulamanın yanıt süresinin (latency) logaritmik olarak artması ve Garbage Collector'ın (GC) işlemciyi %100 meşgul etmesi.\nKök Neden: Büyük Excel raporları oluşturulurken verilerin bellekte (RAM) tutulması ve Apache POI kütüphanesinin streaming yerine standart bellek yöntemini kullanması.\nAdım Adım Çözüm: 1. Ubuntu üzerinde '/etc/default/finanspro' dosyasındaki Java opsiyonlarını güncelleyin: '-Xms4g -Xmx8g'. 2. Raporlama modülünde 'SXSSFWorkbook' (Streaming API) kullanımına geçiş yapın. 3. JVM heap dump alarak MAT (Memory Analyzer Tool) ile sızıntı analizi yapın.\nÖnleyici Tedbir: Heap bellek kullanımını JMX exporter ile izleyin ve eşik değer %80'i geçtiğinde otomatik uyarı oluşturun.",
+        "tags": [
+            "Java",
+            "Spring",
+            "HeapSpace",
+            "MemoryLeak"
+        ],
+        "severity": "critical",
+        "last_verified": "2025-03-01",
+        "author": "app-architect",
+        "metadata": {
+            "applies_to": [
+                "FinansPro JVM Settings"
+            ],
+            "related_cis": [
+                "finans-srv-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-app-0005",
+        "kb": "app_kb",
+        "title": "HR-Portal API Gateway Timeout (504 Gateway Timeout)",
+        "content": "Problem: HR-Portal üzerinden belge yükleme işlemi sırasında kullanıcılar '504 Gateway Timeout' hatası alıyor.\nBelirtiler: Dosya boyutu 10MB üzerindeyken işlemin tam 60. saniyede kesilmesi. Fortinet Firewall loglarında 'SSL-VPN Session Timeout' veya 'WAF Timeout' kayıtları.\nKök Neden: Nginx reverse proxy ve Fortinet WAF üzerinde varsayılan timeout süresinin (60s) büyük dosyaların işlenme süresinden kısa olması.\nAdım Adım Çözüm: 1. Nginx konfigürasyonunda 'proxy_read_timeout' ve 'proxy_send_timeout' değerlerini 300s olarak güncelleyin. 2. Fortinet WAF üzerinde ilgili policy için 'http-transaction-timeout' değerini artırın. 3. Node.js backend tarafında body-parser limitini kontrol edin.\nÖnleyici Tedbir: Dosya yükleme işlemlerini asenkron hale getirerek kullanıcıya bir 'işlem başlatıldı' bildirimi verin ve sonucu email ile iletin.",
+        "tags": [
+            "Nginx",
+            "Fortinet",
+            "Timeout",
+            "HR-Portal"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-02-15",
+        "author": "network-team",
+        "metadata": {
+            "applies_to": [
+                "Edge Proxy",
+                "Firewall"
+            ],
+            "related_cis": [
+                "fortigate-60f",
+                "nginx-lb-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-app-0006",
+        "kb": "app_kb",
+        "title": "FinansPro Oracle 19c TNS Listener Bağlantı Reddi",
+        "content": "Problem: FinansPro uygulaması veritabanına bağlanırken 'ORA-12514: TNS:listener does not currently know of service requested' hatası alıyor.\nBelirtiler: Uygulama ayağa kalkamıyor. 'lsnrctl status' komutu çıktısında Finans DB servisinin görülmemesi.\nKök Neden: Oracle 19c sunucusundaki IP değişikliği sonrası listener.ora dosyasının eski IP (10.0.1.50) üzerinde kalması ve yeni IP'yi (10.0.1.55) tanımaması.\nAdım Adım Çözüm: 1. Oracle sunucusuna SSH yapın. 2. '$ORACLE_HOME/network/admin/listener.ora' dosyasını düzenleyerek HOST parametresini yeni IP ile güncelleyin. 3. 'lsnrctl stop' ve 'lsnrctl start' komutlarını çalıştırın. 4. SQLPlus ile lokalde login olup 'alter system register;' komutunu çalıştırın.\nÖnleyici Tedbir: Sunucu IP yapılandırmalarını statik olarak sabitleyin ve DNS (FQDN) kullanımına geçerek IP bağımlılığını azaltın.",
+        "tags": [
+            "Oracle 19c",
+            "TNS",
+            "Database",
+            "Networking"
+        ],
+        "severity": "high",
+        "last_verified": "2025-03-05",
+        "author": "dba-team",
+        "metadata": {
+            "applies_to": [
+                "Oracle 19c Finans DB"
+            ],
+            "related_cis": [
+                "db-srv-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-app-0007",
+        "kb": "app_kb",
+        "title": "HR-Portal CSS/JS Kaynaklarının Yüklenememesi (Mixed Content)",
+        "content": "Problem: HR-Portal'a HTTPS üzerinden erişildiğinde sayfa düzeni bozuk görünüyor ve butonlar çalışmıyor.\nBelirtiler: Browser konsolunda 'Blocked loading mixed active content' hataları. Bazı .css ve .js dosyalarının HTTP üzerinden çağrılmaya çalışılması.\nKök Neden: Uygulamanın Load Balancer arkasında çalışması ve 'X-Forwarded-Proto' header'ının uygulama tarafından tanınmaması nedeniyle linklerin HTTP olarak generate edilmesi.\nAdım Adım Çözüm: 1. React uygulamasının build konfigürasyonunda 'PUBLIC_URL' değerini HTTPS olarak set edin. 2. Node.js tarafında 'app.enable('trust proxy')' komutunu ekleyin. 3. Nginx üzerinde 'proxy_set_header X-Forwarded-Proto $scheme;' satırının olduğundan emin olun.\nÖnleyici Tedbir: Content Security Policy (CSP) tanımlayarak tüm kaynakların sadece HTTPS üzerinden yüklenmesini zorunlu kılın.",
+        "tags": [
+            "React",
+            "Security",
+            "SSL",
+            "Nginx"
+        ],
+        "severity": "low",
+        "last_verified": "2025-01-20",
+        "author": "web-team",
+        "metadata": {
+            "applies_to": [
+                "HR-Portal Frontend"
+            ],
+            "related_cis": [
+                "hr-portal-app-02"
+            ]
+        }
+    },
+    {
+        "id": "kb-app-0008",
+        "kb": "app_kb",
+        "title": "FinansPro Spring Batch Job Failure (Stale State)",
+        "content": "Problem: Gece çalışan toplu ödeme (Batch) işleri 'FAILED' statüsünde kalıyor ve manuel tetiklenemiyor.\nBelirtiler: Loglarda 'JobInstanceAlreadyCompleteException' hatası. Ödeme tablosunda bazı kayıtların 'PROCESSING' durumunda takılı kalması.\nKök Neden: Bir önceki batch işinin sunucu resetlenmesi nedeniyle yarım kalması ve meta-data tablolarında (BATCH_JOB_EXECUTION) işin hala 'STARTED' olarak görünmesi.\nAdım Adım Çözüm: 1. Oracle DB üzerinde 'UPDATE BATCH_JOB_EXECUTION SET STATUS='FAILED', EXIT_CODE='FAILED' WHERE JOB_EXECUTION_ID=...;' sorgusunu çalıştırın. 2. FinansPro yönetim panelinden 'Restart Job' butonuna basın. 3. Başarısız olan kayıtları 're-process' bayrağı ile işaretleyin.\nÖnleyici Tedbir: Batch işlerine 'graceful shutdown' mekanizması ekleyin ve Spring Batch tablolarını haftalık olarak temizleyin (cleanup).",
+        "tags": [
+            "Spring Batch",
+            "Java",
+            "FinansPro",
+            "Oracle"
+        ],
+        "severity": "medium",
+        "last_verified": "2025-02-28",
+        "author": "app-support-l2",
+        "metadata": {
+            "applies_to": [
+                "FinansPro Batch Engine"
+            ],
+            "related_cis": [
+                "finans-db-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-app-0009",
+        "kb": "app_kb",
+        "title": "HR-Portal Node.js Event Loop Blockage Sorunu",
+        "content": "Problem: HR-Portal ana sayfası çok yavaş yükleniyor, bazen 10-15 saniye sürüyor.\nBelirtiler: Sunucu CPU kullanımı düşük olmasına rağmen uygulama yanıt vermiyor. Loglarda 'Event loop blocked for 5000ms' uyarıları.\nKök Neden: Backend tarafında büyük bir JSON dosyasının 'JSON.parse()' veya 'JSON.stringify()' ile senkron olarak işlenmesi sonucu event loop'un kilitlenmesi.\nAdım Adım Çözüm: 1. Bloklamaya neden olan ağır CPU işlemlerini 'worker_threads' modülüne taşıyın. 2. JSON işleme operasyonlarını 'stream' kullanarak parçalara bölün. 3. Node.js sunucusunu '--trace-event-categories node.async_hooks' ile profillemeye alın.\nÖnleyici Tedbir: Uygulama performansını 'Clinic.js' gibi araçlarla düzenli test edin ve büyük veri setlerini API tarafında sayfalamaya (pagination) zorlayın.",
+        "tags": [
+            "Node.js",
+            "Performance",
+            "Event Loop",
+            "HR-Portal"
+        ],
+        "severity": "high",
+        "last_verified": "2025-03-10",
+        "author": "fullstack-dev",
+        "metadata": {
+            "applies_to": [
+                "HR-Portal Backend"
+            ],
+            "related_cis": [
+                "hr-portal-srv-01"
+            ]
+        }
+    },
+    {
+        "id": "kb-app-0010",
+        "kb": "app_kb",
+        "title": "FinansPro Windows 11 Desktop Client Crash",
+        "content": "Problem: Bazı Windows 11 kullanıcıları FinansPro masaüstü istemcisini açtığında uygulama aniden kapanıyor.\nBelirtiler: Windows Event Viewer üzerinde 'Event ID 1000, Application Error' ve 'faulting module: clr.dll' kaydı.\nKök Neden: Kullanıcı bilgisayarlarındaki .NET Framework 4.8 güncellemesinin bozulması veya Cisco AnyConnect VPN'in sağladığı ağ sürücülerinin uygulama ile çakışması.\nAdım Adım Çözüm: 1. 'Control Panel -> Programs -> Turn Windows features on or off' kısmından .NET 4.8'i kapatıp tekrar açın. 2. FinansPro .exe dosyasını 'Yönetici Olarak Çalıştır' modunda deneyin. 3. Cisco AnyConnect 'Endpoint Posture Check' ayarlarını kontrol edin.\nÖnleyici Tedbir: Şirket genelinde .NET Framework güncellemelerini SCCM üzerinden merkezi ve kontrollü bir şekilde dağıtın.",
+        "tags": [
+            "Windows 11",
+            ".NET Framework",
+            "FinansPro",
+            "Desktop"
+        ],
+        "severity": "low",
+        "last_verified": "2025-01-15",
+        "author": "desktop-support",
+        "metadata": {
+            "applies_to": [
+                "FinansPro Client v3.0"
+            ],
+            "related_cis": [
+                "client-pc-win11"
+            ]
+        }
+    }
+]
