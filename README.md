@@ -107,6 +107,46 @@ Yerel (offline) LLM kullanımında yaşanabilecek donanım bazlı yavaşlamalara
 
 ## Mimari Yaklaşım ve Teknik Tasarım
 
+### Sistem Mimarisi
+
+```mermaid
+flowchart LR
+    User([Kullanıcı<br/>Tarayıcı])
+    Jira[(Jira Cloud<br/>REST API)]
+    OR[(OpenRouter API<br/>gpt-oss-120b)]
+
+    subgraph Docker["Docker Compose Ortamı"]
+        direction TB
+        App["FastAPI App :8080<br/>Dashboard + Webhook<br/>LangGraph Orkestrasyonu"]
+        MCP["mcp-atlassian :9000<br/>Jira MCP Gateway<br/>SSE Transport"]
+        Chroma[("ChromaDB :8001<br/>10 KB Collection<br/>+ ticket_vectors")]
+        Mongo[("MongoDB :27017<br/>RCA Arşivi<br/>+ Ayarlar")]
+        ME["mongo-express :8081<br/>DB Yönetim UI"]
+        Ollama["Ollama :11434<br/>Yerel LLM<br/>llama3.2:3b"]
+    end
+
+    User -->|HTTP| App
+    User -.->|HTTP| ME
+    App -->|MCP / SSE| MCP
+    MCP -->|REST + Auth| Jira
+    App -->|HTTP / Embedding| Chroma
+    App -->|Motor async| Mongo
+    App -->|HTTP /api/chat| Ollama
+    App -.->|HTTPS<br/>varsayılan| OR
+    ME --> Mongo
+
+    classDef ext fill:#fff7e6,stroke:#d48806,color:#000
+    classDef svc fill:#e6f4ff,stroke:#1677ff,color:#000
+    classDef db fill:#f6ffed,stroke:#389e0d,color:#000
+    classDef llm fill:#fff0f6,stroke:#c41d7f,color:#000
+    class User,Jira,OR ext
+    class App,MCP,ME svc
+    class Chroma,Mongo db
+    class Ollama llm
+```
+
+**Akış özeti:** Kullanıcı dashboard üzerinden tetikler → FastAPI app, MCP üzerinden Jira'dan ticketı çeker → LangGraph pipeline ChromaDB'den KB ve benzer ticket arar → LLM (Ollama veya OpenRouter) RCA üretir → MongoDB'ye arşivlenir ve MCP üzerinden Jira'ya yorum yazılır.
+
 ### Nasıl Çalışır?
 
 Sistem bir ticket aldığında sırayla üç yapay zeka ajanını devreye sokar:
